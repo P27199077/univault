@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UniVault - Interactive Student Dashboard</title>
+  <meta name="description" content="Manage your university semesters, courses, slides, and class notes in an interactive dashboard.">
+  <link rel="stylesheet" href="style.css">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="pdf.min.js"></script>
+</head>
+<body>
+
+  <!-- Background Animated Mesh -->
+  <div class="bg-mesh">
+    <div class="mesh-glow mesh-glow-1"></div>
+    <div class="mesh-glow mesh-glow-2"></div>
+    <div class="mesh-glow mesh-glow-3"></div>
+  </div>
+
+  <!-- Login Container -->
+  <div class="login-wrapper" id="login-container">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="brand-icon">
+          <i data-lucide="shield-check" style="color: white;"></i>
+        </div>
+        <span class="brand-name">UniVault</span>
+      </div>
+      
+      <!-- Notification/Error Message Banner -->
+      <div class="auth-alert" id="auth-alert-banner">
+        <span id="auth-alert-text">Error message</span>
+      </div>
+
+      <!-- Sign In Form Panel -->
+      <div class="auth-panel" id="panel-signin">
+        <h2 class="auth-title">Welcome Back</h2>
+        <p class="auth-subtitle">Log in to access your personal workspace.</p>
+        
+        <form id="form-signin">
+          <div class="form-group">
+            <label class="form-label" for="signin-username">Username</label>
+            <input type="text" class="form-control" id="signin-username" placeholder="e.g. tanisha" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="signin-password">Password</label>
+            <input type="password" class="form-control" id="signin-password" placeholder="••••••••" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1.5rem; justify-content: center;">
+            Sign In <i data-lucide="log-in"></i>
+          </button>
+        </form>
+        <div class="auth-switch">
+          New to UniVault? <a href="#" id="link-goto-signup">Create an Account</a>
+        </div>
+      </div>
+
+      <!-- Sign Up Form Panel -->
+      <div class="auth-panel" id="panel-signup" style="display: none;">
+        <h2 class="auth-title">Create Account</h2>
+        <p class="auth-subtitle">Set up local credentials to secure your workspace.</p>
+        
+        <form id="form-signup">
+          <div class="form-group">
+            <label class="form-label" for="signup-username">Desired Username</label>
+            <input type="text" class="form-control" id="signup-username" placeholder="e.g. tanisha" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="signup-password">Password</label>
+            <input type="password" class="form-control" id="signup-password" placeholder="••••••••" minlength="4" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="signup-confirm-password">Confirm Password</label>
+            <input type="password" class="form-control" id="signup-confirm-password" placeholder="••••••••" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1.5rem; justify-content: center;">
+            Get Started <i data-lucide="user-plus"></i>
+          </button>
+        </form>
+        <div class="auth-switch">
+          Already have an account? <a href="#" id="link-goto-signin">Sign In</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="app-container">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">
+          <i data-lucide="shield-check" style="color: white;"></i>
+        </div>
+        <span class="brand-name">UniVault</span>
+      </div>
+
+      <nav>
+        <ul class="nav-links">
+          <li class="nav-item active" id="nav-dashboard-li">
+            <button id="nav-dashboard">
+              <i data-lucide="layout-dashboard"></i>
+              <span>Dashboard</span>
+            </button>
+          </li>
+          <li class="nav-item" id="nav-materials-li">
+            <button id="nav-materials">
+              <i data-lucide="folder-open"></i>
+              <span>Material Vault</span>
+            </button>
+          </li>
+          <li class="nav-item" id="nav-calendar-li">
+            <button id="nav-calendar">
+              <i data-lucide="calendar"></i>
+              <span>Calendar</span>
+            </button>
+          </li>
+          <li class="nav-item" id="nav-todo-li">
+            <button id="nav-todo">
+              <i data-lucide="check-square"></i>
+              <span>Today's Tasks</span>
+            </button>
+          </li>
+          <li class="nav-item" id="nav-cgpa-li">
+            <button id="nav-cgpa">
+              <i data-lucide="calculator"></i>
+              <span>CGPA Calculator</span>
+            </button>
+          </li>
+          <li class="nav-item" id="nav-timetable-li">
+            <button id="nav-timetable">
+              <i data-lucide="grid"></i>
+              <span>Timetable Planner</span>
+            </button>
+          </li>
+          <li class="nav-item" id="nav-resources-li">
+            <button id="nav-resources">
+              <i data-lucide="link"></i>
+              <span>Resources Directory</span>
+            </button>
+          </li>
+          <li class="nav-item" id="nav-settings-li">
+            <button id="nav-settings">
+              <i data-lucide="settings"></i>
+              <span>Settings & Sync</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-profile-badge" id="sidebar-user-badge">
+          <div class="user-avatar" id="sidebar-user-avatar">T</div>
+          <div class="user-details">
+            <span class="user-name-text" id="sidebar-username">Username</span>
+            <span class="user-role">Student</span>
+          </div>
+          <button class="logout-btn" id="btn-logout" title="Log Out">
+            <i data-lucide="log-out"></i>
+          </button>
+        </div>
+        <div class="version-info" style="margin-top: 0.5rem; font-size: 0.75rem;">
+          <strong>UniVault v1.0</strong> · Local Secure Hub
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Panel -->
+    <main class="main-content">
+      
+      <!-- Top Header -->
+      <header>
+        <div class="welcome">
+          <h1 id="page-title">Dashboard</h1>
+          <p id="page-subtitle">Welcome back! Organize your classes, schedules, and materials.</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-secondary" id="btn-import-performance" style="display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="upload-cloud"></i> Import BITS Sheet
+          </button>
+           <input type="file" id="performance-sheet-file-input" accept="application/pdf" style="display: none;">
+          <button class="btn btn-secondary" id="btn-clear-all-dashboard" style="display: flex; align-items: center; gap: 0.5rem; border-color: rgba(239, 68, 68, 0.4); color: var(--color-rose);">
+            <i data-lucide="trash-2"></i> Clear All
+          </button>
+          <button class="btn btn-secondary" id="btn-add-semester">
+            <i data-lucide="plus-circle"></i> Add Semester
+          </button>
+          <button class="btn btn-primary" id="btn-add-course">
+            <i data-lucide="plus"></i> Add Course
+          </button>
+        </div>
+      </header>
+
+      <!-- Dashboard View Panel -->
+      <section class="view-panel active" id="view-dashboard">
+        
+        <!-- Metrics Summary Grid -->
+        <div class="metrics-grid">
+          <div class="metric-card purple">
+            <div class="metric-icon">
+              <i data-lucide="calendar" style="color: var(--color-purple)"></i>
+            </div>
+            <div class="metric-info">
+              <span class="metric-value" id="stat-semesters">0</span>
+              <span class="metric-label">Semesters</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon">
+              <i data-lucide="book-open" style="color: var(--color-indigo)"></i>
+            </div>
+            <div class="metric-info">
+              <span class="metric-value" id="stat-courses">0</span>
+              <span class="metric-label">Total Courses</span>
+            </div>
+          </div>
+          <div class="metric-card emerald">
+            <div class="metric-icon">
+              <i data-lucide="file-text" style="color: var(--color-emerald)"></i>
+            </div>
+            <div class="metric-info">
+              <span class="metric-value" id="stat-materials">0</span>
+              <span class="metric-label">Files Uploaded</span>
+            </div>
+          </div>
+          <div class="metric-card amber">
+            <div class="metric-icon">
+              <i data-lucide="check-square" style="color: var(--color-amber)"></i>
+            </div>
+            <div class="metric-info">
+              <span class="metric-value" id="stat-checklist">0%</span>
+              <span class="metric-label">Tasks Finished</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Semesters Horizontal Drag-and-Drop Container -->
+        <div class="semester-container" id="semester-board">
+          <!-- Dynamically populated semester columns -->
+        </div>
+
+      </section>
+
+      <!-- Material Vault Global View Panel -->
+      <section class="view-panel" id="view-materials">
+        <div class="materials-viewer-grid">
+          
+          <!-- Filters Left Column -->
+          <div class="materials-filters-panel">
+            <div>
+              <h3 class="filter-section-title">Material Type</h3>
+              <div class="filter-buttons">
+                <button class="filter-btn active" data-type="all">
+                  <i data-lucide="layers"></i> All Files
+                </button>
+                <button class="filter-btn" data-type="slides">
+                  <i data-lucide="presentation"></i> Slide Decks
+                </button>
+                <button class="filter-btn" data-type="notes">
+                  <i data-lucide="file-edit"></i> Lecture Notes
+                </button>
+                <button class="filter-btn" data-type="papers">
+                  <i data-lucide="scroll"></i> Papers & Solutions
+                </button>
+                <button class="filter-btn" data-type="handouts">
+                  <i data-lucide="info"></i> Handouts
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <h3 class="filter-section-title">Filter by Course</h3>
+              <select class="form-control" id="filter-course-select" style="margin-top: 0.25rem;">
+                <option value="all">All Courses</option>
+                <!-- Dynamically populated options -->
+              </select>
+            </div>
+          </div>
+
+          <!-- Materials List Right Column -->
+          <div>
+            <div class="search-bar-container">
+              <div class="search-input-wrapper">
+                <i data-lucide="search" class="search-icon"></i>
+                <input type="text" class="form-control" id="search-materials-input" placeholder="Search slides, notes, papers...">
+              </div>
+            </div>
+
+            <div class="all-materials-grid" id="global-materials-grid">
+              <!-- Dynamically populated files -->
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ================= Course Detail View Panel ================= -->
+      <section class="view-panel" id="view-course-detail">
+        <!-- Detail Header -->
+        <div class="course-detail-header">
+          <button class="btn btn-secondary btn-sm" id="btn-back-to-dashboard">
+            <i data-lucide="arrow-left"></i> Back to Dashboard
+          </button>
+          <div class="course-detail-title-row">
+            <h2 id="detail-course-name">Course Name</h2>
+            <span class="course-code-badge" id="detail-course-code-badge">CS-101</span>
+          </div>
+          <div class="course-detail-meta">
+            <span id="detail-course-prof"><i data-lucide="user"></i> Professor</span>
+            <span id="detail-course-grade"><i data-lucide="award"></i> Target: A+</span>
+          </div>
+        </div>
+
+        <!-- 2 Column Workspace Grid -->
+        <div class="course-detail-workspace">
+          
+          <!-- Left Column: Folders Grid -->
+          <div class="folders-column">
+            
+            <!-- Slides Folder -->
+            <div class="folder-card" data-category="slides">
+              <div class="folder-header">
+                <div class="folder-title">
+                  <i data-lucide="presentation" class="folder-icon slides"></i>
+                  <h3>Slides & Presentations</h3>
+                </div>
+                <span class="folder-file-count" id="count-slides">0 files</span>
+              </div>
+              <div class="folder-dropzone" id="dropzone-slides">
+                <i data-lucide="cloud-upload" class="upload-zone-icon"></i>
+                <span class="dropzone-txt">Drop slides here or click to upload</span>
+                <input type="file" id="input-slides" style="display:none;" multiple>
+              </div>
+              <div class="folder-file-list" id="list-slides">
+                <!-- Files render here -->
+              </div>
+            </div>
+
+            <!-- Notes Folder -->
+            <div class="folder-card" data-category="notes">
+              <div class="folder-header">
+                <div class="folder-title">
+                  <i data-lucide="file-edit" class="folder-icon notes"></i>
+                  <h3>Lecture Notes</h3>
+                </div>
+                <span class="folder-file-count" id="count-notes">0 files</span>
+              </div>
+              <div class="folder-dropzone" id="dropzone-notes">
+                <i data-lucide="cloud-upload" class="upload-zone-icon"></i>
+                <span class="dropzone-txt">Drop notes here or click to upload</span>
+                <input type="file" id="input-notes" style="display:none;" multiple>
+              </div>
+              <div class="folder-file-list" id="list-notes">
+                <!-- Files render here -->
+              </div>
+            </div>
+
+            <!-- Papers & Solutions Folder -->
+            <div class="folder-card" data-category="papers">
+              <div class="folder-header">
+                <div class="folder-title">
+                  <i data-lucide="scroll" class="folder-icon papers"></i>
+                  <h3>Papers & Solutions</h3>
+                </div>
+                <span class="folder-file-count" id="count-papers">0 files</span>
+              </div>
+              <div class="folder-dropzone" id="dropzone-papers">
+                <i data-lucide="cloud-upload" class="upload-zone-icon"></i>
+                <span class="dropzone-txt">Drop papers here or click to upload</span>
+                <input type="file" id="input-papers" style="display:none;" multiple>
+              </div>
+              <div class="folder-file-list" id="list-papers">
+                <!-- Files render here -->
+              </div>
+            </div>
+
+            <!-- Handouts Folder -->
+            <div class="folder-card" data-category="handouts">
+              <div class="folder-header">
+                <div class="folder-title">
+                  <i data-lucide="info" class="folder-icon handouts"></i>
+                  <h3>Handouts & Syllabus</h3>
+                </div>
+                <span class="folder-file-count" id="count-handouts">0 files</span>
+              </div>
+              <div class="folder-dropzone" id="dropzone-handouts">
+                <i data-lucide="cloud-upload" class="upload-zone-icon"></i>
+                <span class="dropzone-txt">Drop handouts here or click to upload</span>
+                <input type="file" id="input-handouts" style="display:none;" multiple>
+              </div>
+              <div class="folder-file-list" id="list-handouts">
+                <!-- Files render here -->
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Right Column: Sidebar (Notepad & Checklist) -->
+          <div class="workspace-sidebar">
+            <!-- Checklist Card -->
+            <div class="sidebar-card">
+              <div class="sidebar-card-header">
+                <i data-lucide="check-square"></i>
+                <h3>Checklist & Tasks</h3>
+              </div>
+              <div class="req-input-group">
+                <input type="text" class="form-control" id="detail-new-req-input" placeholder="Add exam, assignment, or task...">
+                <button class="btn btn-primary btn-sm" id="detail-btn-add-req">
+                  <i data-lucide="plus"></i> Add
+                </button>
+              </div>
+              <div class="req-list" id="detail-req-list">
+                <!-- Checklist items -->
+              </div>
+            </div>
+
+            <!-- Notepad Card -->
+            <div class="sidebar-card notepad-card">
+              <div class="sidebar-card-header">
+                <i data-lucide="file-text"></i>
+                <h3>Course Notepad</h3>
+              </div>
+              <div class="notes-container">
+                <textarea class="notes-textarea" id="detail-notes-textarea" placeholder="Start typing class notes, reference links..."></textarea>
+                <div class="notes-status" id="detail-notes-status">Notes saved automatically</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Calendar View Panel -->
+      <section class="view-panel" id="view-calendar">
+        <div class="calendar-layout-workspace">
+          
+          <!-- Left Column: Calendar Main Grid -->
+          <div class="calendar-grid-column">
+            <!-- Calendar Local Header Controls -->
+            <div class="calendar-controls-bar">
+              <div class="calendar-controls-left" style="display: flex; align-items: center; gap: 1rem;">
+                <div style="display: flex; gap: 0.5rem;">
+                  <button id="btn-prev-month" class="btn btn-secondary btn-sm" style="padding: 0.5rem 0.75rem;"><i data-lucide="chevron-left"></i></button>
+                  <button id="btn-next-month" class="btn btn-secondary btn-sm" style="padding: 0.5rem 0.75rem;"><i data-lucide="chevron-right"></i></button>
+                </div>
+                <h2 id="calendar-title" style="margin-bottom: 0;">June 2026</h2>
+              </div>
+
+            </div>
+
+            <!-- Calendar Board Grid -->
+            <div class="calendar-board" style="margin-top: 1.5rem;">
+              <div class="days-header-grid">
+                <div class="day-header">Mon</div>
+                <div class="day-header">Tue</div>
+                <div class="day-header">Wed</div>
+                <div class="day-header">Thu</div>
+                <div class="day-header">Fri</div>
+                <div class="day-header">Sat</div>
+                <div class="day-header">Sun</div>
+              </div>
+              <div id="calendar-grid" class="calendar-grid">
+                <!-- Rendered dynamically -->
+              </div>
+            </div>
+
+            <!-- Footer Stats Bar -->
+            <div class="calendar-footer-stats">
+              <div>
+                <span id="footer-start-display">Starts: June 1, 2026</span>
+                <span style="margin: 0 0.5rem; color: var(--text-muted);">|</span>
+                <span id="footer-end-display">Ends: June 30, 2026</span>
+              </div>
+              <div>
+                <strong id="total-events-count">0</strong> scheduled events
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Calendar Sidebar settings and notes -->
+          <aside class="calendar-sidebar-panel">
+            
+            <!-- Quick Add Task Button -->
+            <button id="btn-sidebar-add-task" class="btn btn-primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem; height: 42px; border-radius: 12px; font-weight: 600;">
+              <i data-lucide="plus"></i> Add New Task
+            </button>
+
+            <!-- Calendar Tag Legend Editor -->
+            <div class="sidebar-card">
+              <div class="sidebar-card-header">
+                <i data-lucide="tag"></i>
+                <h3>Task Tags & Legend</h3>
+              </div>
+              <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.75rem; margin-top: -0.25rem;">Define tag categories for each color:</p>
+              <div class="tag-labels-editor" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span class="pointer-dot dot-blue" style="width: 12px; height: 12px; border-radius: 50%;"></span>
+                  <input type="text" class="form-control form-control-sm tag-label-input" data-color="blue" placeholder="e.g. Lecture" style="height: 32px; font-size: 0.8rem; padding: 4px 8px;">
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span class="pointer-dot dot-purple" style="width: 12px; height: 12px; border-radius: 50%;"></span>
+                  <input type="text" class="form-control form-control-sm tag-label-input" data-color="purple" placeholder="e.g. Exam" style="height: 32px; font-size: 0.8rem; padding: 4px 8px;">
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span class="pointer-dot dot-warm" style="width: 12px; height: 12px; border-radius: 50%;"></span>
+                  <input type="text" class="form-control form-control-sm tag-label-input" data-color="warm" placeholder="e.g. Project" style="height: 32px; font-size: 0.8rem; padding: 4px 8px;">
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span class="pointer-dot dot-green" style="width: 12px; height: 12px; border-radius: 50%;"></span>
+                  <input type="text" class="form-control form-control-sm tag-label-input" data-color="green" placeholder="e.g. Homework" style="height: 32px; font-size: 0.8rem; padding: 4px 8px;">
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span class="pointer-dot dot-rose" style="width: 12px; height: 12px; border-radius: 50%;"></span>
+                  <input type="text" class="form-control form-control-sm tag-label-input" data-color="rose" placeholder="e.g. Personal" style="height: 32px; font-size: 0.8rem; padding: 4px 8px;">
+                </div>
+              </div>
+            </div>
+
+            <!-- Today's Tasks Checklist Card -->
+            <div class="sidebar-card">
+              <div class="sidebar-card-header">
+                <i data-lucide="check-square"></i>
+                <h3>Today's Tasks</h3>
+              </div>
+              <div class="today-tasks-checklist" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <div>
+                  <h4 style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem; letter-spacing: 0.05em; font-weight: bold;">To Do</h4>
+                  <ul id="today-pending-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.4rem;">
+                    <!-- Pending items populated dynamically -->
+                  </ul>
+                </div>
+                <div style="border-top: 1px solid var(--border-color); padding-top: 0.5rem; margin-top: 0.25rem;">
+                  <h4 style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem; letter-spacing: 0.05em; font-weight: bold;">Completed</h4>
+                  <ul id="today-done-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.4rem;">
+                    <!-- Completed items populated dynamically -->
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- Optional D-Day countdown card -->
+            <div class="sidebar-card">
+              <div class="sidebar-card-header">
+                <i data-lucide="hourglass"></i>
+                <h3>D-Day Countdown</h3>
+              </div>
+              <div class="form-group checkbox-group" style="margin-bottom: 0.75rem;">
+                <label class="checkbox-container" for="sidebar-dday-enabled" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.85rem;">
+                  <input type="checkbox" id="sidebar-dday-enabled">
+                  <span>Enable Countdown Badges</span>
+                </label>
+              </div>
+              <div id="sidebar-dday-date-group" style="display: none;">
+                <label class="form-label" for="sidebar-dday-date" style="font-size: 0.75rem;">Target Date</label>
+                <input type="date" class="form-control form-control-sm" id="sidebar-dday-date">
+              </div>
+            </div>
+
+            <!-- General Notes Card -->
+            <div class="sidebar-card" style="flex: 1; display: flex; flex-direction: column; min-height: 250px;">
+              <div class="sidebar-card-header">
+                <i data-lucide="clipboard-list"></i>
+                <h3>Notes & Reminders</h3>
+              </div>
+              <div class="calendar-sidebar-notes" style="display: flex; flex-direction: column; flex: 1;">
+                <ul class="notes-list" id="sidebar-notes-list" style="max-height: none; flex: 1; overflow-y: auto; margin-bottom: 0.75rem;">
+                  <!-- Dynamically rendered -->
+                </ul>
+                <div class="notes-input-bar" style="border-top: 1px solid var(--border-color); padding-top: 0.75rem; margin-top: auto;">
+                  <input type="text" id="new-note-input" placeholder="Add a quick note..." style="padding: 0.5rem; font-size: 0.8rem;">
+                  <button id="btn-add-sidebar-note" class="btn btn-primary btn-sm" style="width: 32px; height: 32px; border-radius: 6px; padding: 0; justify-content: center; font-size: 1.2rem;">+</button>
+                </div>
+              </div>
+            </div>
+
+          </aside>
+        </div>
+      </section>
+
+      <!-- Today's Tasks View Panel (Full Page) -->
+      <section class="view-panel" id="view-todo">
+        <div class="calendar-layout-workspace">
+          
+          <!-- Left Column: Tasks Grid -->
+          <div class="calendar-grid-column" style="flex: 2; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
+            
+            <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; min-height: 400px; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px);">
+              <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                  <i data-lucide="check-square" style="color: var(--color-accent); width: 24px; height: 24px;"></i>
+                  <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0; color: white;">Pending Tasks</h2>
+                </div>
+                <button class="btn btn-primary btn-sm" id="btn-todo-page-add" style="display: flex; align-items: center; gap: 0.5rem; height: 36px; padding: 0 1rem; font-size: 0.85rem; border-radius: 8px;">
+                  <i data-lucide="plus"></i> Add Task
+                </button>
+              </div>
+              
+              <ul id="todo-page-pending-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem;">
+                <!-- Dynamically populated -->
+              </ul>
+            </div>
+            
+          </div>
+          
+          <!-- Right Column: Completed Tasks -->
+          <aside class="calendar-sidebar-panel" style="flex: 1; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
+            
+            <div class="sidebar-card" style="flex: 1; display: flex; flex-direction: column; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); padding: 1.5rem; min-height: 400px;">
+              <div style="display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1rem;">
+                <i data-lucide="check-circle" style="color: var(--color-emerald); width: 20px; height: 20px;"></i>
+                <h3 style="font-size: 1.2rem; font-weight: 600; margin: 0; color: white;">Completed Today</h3>
+              </div>
+              <ul id="todo-page-done-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem;">
+                <!-- Dynamically populated -->
+              </ul>
+            </div>
+            
+          </aside>
+          
+        </div>
+      </section>
+
+      <!-- CGPA Calculator View Panel -->
+      <section class="view-panel" id="view-cgpa">
+        <div class="view-header" style="margin-bottom: 2rem;">
+          <div>
+            <h1 id="page-title">CGPA Calculator</h1>
+            <p id="page-subtitle">Track, predict, and project your academic performance across semesters.</p>
+          </div>
+        </div>
+
+        <!-- Cumulative CGPA Card -->
+        <div class="metric-card purple" style="display: flex; flex-direction: column; gap: 1rem; align-items: center; justify-content: center; padding: 2rem; margin-bottom: 2rem; border-radius: 16px; background: rgba(43, 56, 76, 0.4); text-align: center; border: 1px solid var(--border-color); backdrop-filter: blur(8px);">
+          <div style="font-size: 1.2rem; opacity: 0.8; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">Cumulative CGPA</div>
+          <div id="overall-cgpa-display" style="font-size: 4rem; font-weight: 800; background: linear-gradient(135deg, #DD8C96 0%, #F4DAD4 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 2px 8px rgba(221, 140, 150, 0.3));">0.00</div>
+          <div style="display: flex; gap: 2rem; margin-top: 0.5rem; font-size: 0.95rem; color: var(--text-secondary);">
+            <div>Total Credits: <span id="overall-credits-display" style="color: var(--text-primary); font-weight: 600;">0.0</span></div>
+            <div>Calculated Courses: <span id="overall-courses-display" style="color: var(--text-primary); font-weight: 600;">0</span></div>
+          </div>
+        </div>
+
+        <!-- Semesters CGPA Container -->
+        <div id="cgpa-semesters-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1.5rem; padding-bottom: 3rem;">
+          <!-- Dynamically generated semester cards -->
+      </section>
+
+      <!-- Timetable Maker View Panel -->
+      <section class="view-panel" id="view-timetable">
+        <div class="view-header" style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h1 id="page-title">Timetable Planner</h1>
+            <p id="page-subtitle">Design your weekly course schedules, prevent lecture clashes, and export timings.</p>
+          </div>
+          <div id="timetable-header-actions" style="display: none; align-items: center; gap: 0.75rem;">
+            <button id="btn-freeze-timetable" class="btn btn-primary" style="display: flex; align-items: center; gap: 0.5rem; height: 38px; border-radius: 8px;">
+              <i data-lucide="lock"></i> Freeze Timetable
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 1: Degree Select Container -->
+        <div id="timetable-setup-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; text-align: center; gap: 1.5rem; border: 1px solid var(--border-color); background: rgba(18, 19, 35, 0.45); border-radius: 16px; backdrop-filter: blur(8px); padding: 2rem;">
+          <div style="font-size: 1.5rem; font-weight: 700; color: white;">Select your degree so we can help build your timetable:</div>
+          <select id="timetable-degree-select" class="form-control" style="width: 320px; text-align: center; font-size: 1rem; padding: 0.75rem; background: rgba(18, 19, 35, 0.85); border: 1px solid var(--border-color); border-radius: 8px; color: white;">
+            <option value="A7">A7: B.E. Computer Science</option>
+            <option value="A3">A3: B.E. Electrical & Electronics</option>
+          </select>
+          <button id="btn-submit-timetable-degree" class="btn btn-primary" style="padding: 0.75rem 2.5rem; font-size: 1rem; border-radius: 8px;">Submit</button>
+          
+          <div style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; max-width: 320px;">
+            <div style="font-size: 0.9rem; color: var(--text-secondary);">Or upload BITS Timetable PDF:</div>
+            <button class="btn btn-secondary" id="btn-import-timetable" style="display: flex; align-items: center; gap: 0.5rem; width: 100%; justify-content: center;">
+              <i data-lucide="upload-cloud"></i> Upload Timetable PDF
+            </button>
+            <input type="file" id="timetable-pdf-file-input" accept="application/pdf" style="display: none;">
+          </div>
+        </div>
+
+        <!-- Step 2: Timetable Workspace Container -->
+        <div id="timetable-workspace" style="display: none; gap: 1.5rem; width: 100%;">
+          
+          <!-- Left Column: Course Timings & Selectors -->
+          <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 1rem;">
+            <div class="sidebar-card" style="padding: 1.5rem; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+                <h3 style="font-size: 1.2rem; font-weight: 700; color: white; margin: 0;">Course Sections</h3>
+                <button id="btn-reset-timetable" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; border-color: rgba(239, 68, 68, 0.4); color: var(--color-rose);">Reset</button>
+              </div>
+              <div id="timetable-courses-list" style="display: flex; flex-direction: column; gap: 1rem; max-height: 520px; overflow-y: auto; padding-right: 0.25rem;">
+                <!-- Dynamically populated courses & sections -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Timetable Grid -->
+          <div style="flex: 2; display: flex; flex-direction: column; gap: 1rem;">
+            <div class="sidebar-card" style="padding: 1.5rem; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); overflow-x: auto;">
+              <h3 style="font-size: 1.2rem; font-weight: 700; color: white; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">Weekly Timetable Grid</h3>
+              
+              <!-- Weekly Grid Table -->
+              <table style="width: 100%; border-collapse: collapse; min-width: 650px; font-size: 0.85rem; border: 1px solid var(--border-color);">
+                <thead>
+                  <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-secondary); background: rgba(255,255,255,0.02);">
+                    <th style="padding: 0.75rem; text-align: left; width: 100px; border-right: 1px solid var(--border-color);">Hour</th>
+                    <th style="padding: 0.75rem; text-align: center; border-right: 1px solid var(--border-color);">Mon</th>
+                    <th style="padding: 0.75rem; text-align: center; border-right: 1px solid var(--border-color);">Tue</th>
+                    <th style="padding: 0.75rem; text-align: center; border-right: 1px solid var(--border-color);">Wed</th>
+                    <th style="padding: 0.75rem; text-align: center; border-right: 1px solid var(--border-color);">Thu</th>
+                    <th style="padding: 0.75rem; text-align: center; border-right: 1px solid var(--border-color);">Fri</th>
+                    <th style="padding: 0.75rem; text-align: center;">Sat</th>
+                  </tr>
+                </thead>
+                <tbody id="timetable-grid-body">
+                  <!-- Generated hours rows dynamically -->
+                </tbody>
+              </table>
+              
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Resources View Panel -->
+      <section class="view-panel" id="view-resources">
+        <div class="view-header" style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h1 id="page-title">Resources Directory</h1>
+            <p id="page-subtitle">A spreadsheet to store, organize, and edit helpful reference links and descriptions.</p>
+          </div>
+          <div>
+            <button id="btn-add-resource" class="btn btn-primary" style="display: flex; align-items: center; gap: 0.5rem; height: 38px; border-radius: 8px;">
+              <i data-lucide="plus"></i> Add Link Row
+            </button>
+          </div>
+        </div>
+
+        <div class="sidebar-card" style="padding: 1.5rem; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 1rem;">
+          
+          <!-- Spreadsheet Container -->
+          <div style="width: 100%; max-height: 520px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; background: rgba(0,0,0,0.2);">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; min-width: 600px;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border-color); background: rgba(255,255,255,0.02); color: var(--text-secondary);">
+                  <th style="padding: 0.75rem 1rem; width: 60px; text-align: center; border-right: 1px solid var(--border-color);">No.</th>
+                  <th style="padding: 0.75rem 1rem; width: 320px; border-right: 1px solid var(--border-color);">Resource Link / URL (Double-click to Edit)</th>
+                  <th style="padding: 0.75rem 1rem; border-right: 1px solid var(--border-color);">Description (Double-click to Edit)</th>
+                  <th style="padding: 0.75rem 1rem; width: 80px; text-align: center;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="resources-spreadsheet-body">
+                <!-- Dynamically generated rows -->
+              </tbody>
+            </table>
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-secondary); display: flex; align-items: center; gap: 0.25rem;">
+            <i data-lucide="info" style="width: 12px; height: 12px; color: var(--color-accent);"></i> Double-click any cell in the table to edit its content inline. Changes are saved automatically.
+          </div>
+          
+        </div>
+      </section>
+
+      <!-- Settings & Sync View Panel -->
+      <section class="view-panel" id="view-settings">
+        <div class="view-header" style="margin-bottom: 2rem;">
+          <div>
+            <h1 id="page-title">Settings & Sync</h1>
+            <p id="page-subtitle">Export, backup, and sync your dashboard data across multiple devices.</p>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+          
+          <!-- Cloud Auto-Sync Configuration Card -->
+          <div class="sidebar-card" style="padding: 1.5rem; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 1.25rem;">
+            <h3 style="font-size: 1.15rem; font-weight: 600; color: white; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; margin: 0;">
+              <i data-lucide="cloud" style="color: var(--color-purple);"></i> Automatic Cloud Sync
+            </h3>
+            
+            <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+              Enable real-time automatic cloud synchronization. Any changes you make will be automatically uploaded and synced to your other devices using your private Sync Key.
+            </p>
+            
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 0.85rem; font-weight: 600; color: white;">Sync Status</span>
+                <span id="cloud-sync-status" style="background: rgba(239, 68, 68, 0.15); color: var(--color-rose); padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;">Disabled</span>
+              </div>
+              
+              <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <label style="font-size: 0.75rem; color: var(--text-secondary);">Your Private Sync Key</label>
+                <div style="display: flex; gap: 0.5rem;">
+                  <input type="text" id="input-cloud-sync-key" placeholder="Enter a unique sync key..." style="flex: 1; font-size: 0.85rem; padding: 0.5rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; color: white; font-family: monospace;">
+                  <button id="btn-generate-sync-key" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; height: auto;">Generate</button>
+                </div>
+              </div>
+              
+              <button id="btn-toggle-cloud-sync" class="btn btn-primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 0.5rem;">
+                <i data-lucide="cloud-lightning"></i> Enable Cloud Auto-Sync
+              </button>
+            </div>
+          </div>
+
+          <!-- Manual Backup & Text Sync Options -->
+          <div class="sidebar-card" style="padding: 1.5rem; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 1.25rem;">
+            <h3 style="font-size: 1.15rem; font-weight: 600; color: white; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; margin: 0;">
+              <i data-lucide="refresh-cw" style="color: var(--color-emerald);"></i> Manual File Backup
+            </h3>
+            
+            <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+              Prefer local backups? Download a file snapshot of your settings or copy the raw code representation.
+            </p>
+            
+            <div style="border-top: 1px solid var(--border-color); padding-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+              <button id="btn-export-backup" class="btn btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                <i data-lucide="download"></i> Download Backup File
+              </button>
+              
+              <button id="btn-copy-sync-code" class="btn btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                <i data-lucide="copy"></i> Copy Text Sync Code
+              </button>
+            </div>
+          </div>
+          
+          <!-- Import Restore Card -->
+          <div class="sidebar-card" style="padding: 1.5rem; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 1.25rem;">
+            <h3 style="font-size: 1.15rem; font-weight: 600; color: white; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; margin: 0;">
+              <i data-lucide="upload" style="color: var(--color-emerald);"></i> Restore / Sync Data
+            </h3>
+            
+            <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+              Restore your dashboard configuration by uploading your backup file or pasting your text sync code.
+            </p>
+            
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+              <!-- File restore -->
+              <button id="btn-trigger-import" class="btn btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                <i data-lucide="file-up"></i> Upload Backup File
+              </button>
+              <input type="file" id="input-import-file" accept="application/json" style="display: none;">
+              
+              <!-- Text code restore -->
+              <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.25rem;">
+                <textarea id="text-sync-code-input" placeholder="Paste your text sync code here..." style="width: 100%; height: 60px; font-family: monospace; font-size: 0.75rem; padding: 0.5rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; color: white; resize: none;"></textarea>
+                <button id="btn-submit-sync-code" class="btn btn-primary btn-sm" style="width: 100%;">Apply Sync Code</button>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- Add Semester Modal -->
+  <div class="modal-backdrop" id="modal-semester-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">Add Semester</span>
+        <button class="modal-close" id="modal-semester-close">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form id="form-add-semester">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="sem-name-input">Semester Name</label>
+            <input type="text" class="form-control" id="sem-name-input" placeholder="e.g. Fall 2026, Semester 1" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-semester">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Semester</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Course Modal -->
+  <div class="modal-backdrop" id="modal-course-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title" id="course-modal-title">Add Course</span>
+        <button class="modal-close" id="modal-course-close">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form id="form-add-course">
+        <input type="hidden" id="course-edit-id" value="">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="course-name-input">Course Name</label>
+            <input type="text" class="form-control" id="course-name-input" placeholder="e.g., Intro to Computer Science" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="course-code-input">Course Code</label>
+            <input type="text" class="form-control" id="course-code-input" placeholder="e.g., CS-101" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="course-prof-input">Professor Name</label>
+            <input type="text" class="form-control" id="course-prof-input" placeholder="e.g., Dr. Alan Turing">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="course-sem-select">Semester</label>
+            <select class="form-control" id="course-sem-select" required>
+              <!-- Dynamically populated options -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="course-grade-input">Target Grade</label>
+            <input type="text" class="form-control" id="course-grade-input" placeholder="e.g., A+, 4.0">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="course-credits-input">Credits / Units</label>
+            <input type="number" step="0.5" min="0" class="form-control" id="course-credits-input" placeholder="e.g., 3.0, 4.0" value="3.0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Theme Accent Color</label>
+            <div class="theme-options" id="theme-color-selector">
+              <!-- Colors dynamically generated -->
+            </div>
+            <input type="hidden" id="course-theme-input" value="indigo">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-course">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-course-submit">Create Course</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Preview File Modal -->
+  <div class="modal-backdrop" id="modal-preview-backdrop">
+    <div class="modal preview-modal">
+      <div class="modal-header">
+        <span class="modal-title" id="preview-file-title">File Preview</span>
+        <button class="modal-close" id="modal-preview-close">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="padding: 1.5rem;">
+        <div class="preview-content" id="preview-container">
+          <!-- Preview file contents inside here -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-download-preview-file">
+          <i data-lucide="download"></i> Download File
+        </button>
+        <button class="btn btn-primary" id="btn-close-preview">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calendar Event Modal -->
+  <div class="modal-backdrop" id="event-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-title">Add Note & Event</span>
+        <button class="modal-close" id="close-modal-btn">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form id="event-form">
+        <div class="modal-body">
+          <input type="hidden" id="event-id">
+          <input type="hidden" id="event-clicked-date">
+
+          <div class="form-group">
+            <label class="form-label" for="event-title">Event Title / Task</label>
+            <input type="text" class="form-control" id="event-title" required placeholder="e.g. Midterm Exam, Study Plan, Project Review" maxlength="60">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="event-desc">Description / Notes</label>
+            <textarea class="form-control" id="event-desc" rows="3" placeholder="Add links, tasks, descriptions..."></textarea>
+          </div>
+
+          <!-- Start and End Dates Grid for Multi-Day Tasks -->
+          <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div class="form-group">
+              <label class="form-label" for="event-start-date">Start Date</label>
+              <input type="date" class="form-control" id="event-start-date" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="event-end-date">End Date / Repeat End</label>
+              <input type="date" class="form-control" id="event-end-date" required>
+            </div>
+          </div>
+
+          <!-- Repeat Options selector -->
+          <div class="form-group" style="margin-top: 1rem; margin-bottom: 1rem;">
+            <label class="form-label" for="event-repeat">Repeat Pattern</label>
+            <select class="form-control" id="event-repeat" style="height: 38px;">
+              <option value="none">Does not repeat (None)</option>
+              <option value="daily">Everyday (Daily)</option>
+              <option value="weekly">Weekly (on same day of week)</option>
+              <option value="yearly">Yearly (on same date)</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-top: 1rem;">
+            <label class="form-label" for="event-time">Time (Optional)</label>
+            <input type="time" class="form-control" id="event-time">
+          </div>
+
+          <div class="form-group" style="margin-top: 1rem;">
+            <label class="form-label">Task Tag & Category</label>
+            <div id="modal-tag-selector" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-top: 0.5rem;">
+              <!-- Dynamically populated from JS legend labels! -->
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer" style="justify-content: space-between;">
+          <div style="display: flex; gap: 0.5rem;">
+            <button type="button" id="delete-instance-btn" class="btn btn-secondary" style="border-color: var(--color-rose); color: var(--color-rose); display: none; padding: 0.5rem 0.75rem; font-size: 0.8rem;">Delete This Day</button>
+            <button type="button" id="delete-event-btn" class="btn btn-secondary" style="border-color: var(--color-rose); color: var(--color-rose); display: none; padding: 0.5rem 0.75rem; font-size: 0.8rem;">Delete Task</button>
+          </div>
+          <button type="submit" id="save-event-btn" class="btn btn-primary">Save Note</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast notification container -->
+  <div id="toast-container" style="position: fixed; bottom: 2rem; right: 2rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.75rem; pointer-events: none;"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
