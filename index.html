@@ -649,12 +649,24 @@
 
       <!-- Timetable Maker View Panel -->
       <section class="view-panel" id="view-timetable">
-        <div class="view-header" style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+        <div class="view-header" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <div>
             <h1 id="page-title">Timetable Planner</h1>
-            <p id="page-subtitle">Design your weekly course schedules, prevent lecture clashes, and export timings.</p>
+            <p id="page-subtitle">Design weekly course schedules, detect lecture clashes, export to Google Calendar & PDF.</p>
           </div>
-          <div id="timetable-header-actions" style="display: none; align-items: center; gap: 0.75rem;">
+          <div id="timetable-header-actions" style="display: none; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+            <button id="btn-import-pdf-header" class="btn btn-secondary" style="display: flex; align-items: center; gap: 0.5rem; height: 38px; border-radius: 8px;">
+              <i data-lucide="file-up"></i> Upload PDF (Class/Exam)
+            </button>
+            <button id="btn-add-custom-course" class="btn btn-secondary" style="display: flex; align-items: center; gap: 0.5rem; height: 38px; border-radius: 8px;">
+              <i data-lucide="plus"></i> Add Custom Course
+            </button>
+            <button id="btn-export-ics" class="btn btn-secondary" style="display: flex; align-items: center; gap: 0.5rem; height: 38px; border-radius: 8px;">
+              <i data-lucide="calendar"></i> Export to iCal (.ics)
+            </button>
+            <button id="btn-export-png" class="btn btn-secondary" style="display: flex; align-items: center; gap: 0.5rem; height: 38px; border-radius: 8px;">
+              <i data-lucide="printer"></i> Print / Save Image
+            </button>
             <button id="btn-freeze-timetable" class="btn btn-primary" style="display: flex; align-items: center; gap: 0.5rem; height: 38px; border-radius: 8px;">
               <i data-lucide="lock"></i> Freeze Timetable
             </button>
@@ -680,45 +692,113 @@
         </div>
 
         <!-- Step 2: Timetable Workspace Container -->
-        <div id="timetable-workspace" style="display: none; gap: 1.5rem; width: 100%;">
+        <div id="timetable-workspace" style="display: none; flex-direction: column; gap: 1.5rem; width: 100%;">
           
-          <!-- Left Column: Course Timings & Selectors -->
-          <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 1rem;">
-            <div class="sidebar-card" style="padding: 1.5rem; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 1rem;">
-              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
-                <h3 style="font-size: 1.2rem; font-weight: 700; color: white; margin: 0;">Course Sections</h3>
-                <button id="btn-reset-timetable" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; border-color: rgba(239, 68, 68, 0.4); color: var(--color-rose);">Reset</button>
+          <!-- Timetable Stats Bar -->
+          <div id="timetable-stats-bar" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div style="background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: flex; align-items: center; gap: 1rem; backdrop-filter: blur(8px);">
+              <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(59, 130, 246, 0.15); color: var(--color-accent); display: flex; align-items: center; justify-content: center;">
+                <i data-lucide="clock"></i>
               </div>
-              <div id="timetable-courses-list" style="display: flex; flex-direction: column; gap: 1rem; max-height: 520px; overflow-y: auto; padding-right: 0.25rem;">
-                <!-- Dynamically populated courses & sections -->
+              <div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Weekly Hours</div>
+                <div id="stat-total-hours" style="font-size: 1.25rem; font-weight: 700; color: white;">0 Hours</div>
+              </div>
+            </div>
+
+            <div style="background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: flex; align-items: center; gap: 1rem; backdrop-filter: blur(8px);">
+              <div id="stat-clash-icon-box" style="width: 42px; height: 42px; border-radius: 10px; background: rgba(16, 185, 129, 0.15); color: var(--color-emerald); display: flex; align-items: center; justify-content: center;">
+                <i data-lucide="shield-check"></i>
+              </div>
+              <div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Schedule Clashes</div>
+                <div id="stat-clashes-count" style="font-size: 1.25rem; font-weight: 700; color: var(--color-emerald);">0 Clashes</div>
+              </div>
+            </div>
+
+            <div style="background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: flex; align-items: center; gap: 1rem; backdrop-filter: blur(8px);">
+              <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(245, 158, 11, 0.15); color: #f59e0b; display: flex; align-items: center; justify-content: center;">
+                <i data-lucide="coffee"></i>
+              </div>
+              <div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Free Days</div>
+                <div id="stat-free-days" style="font-size: 1.25rem; font-weight: 700; color: white;">None</div>
               </div>
             </div>
           </div>
 
-          <!-- Right Column: Timetable Grid -->
-          <div style="flex: 2; display: flex; flex-direction: column; gap: 1rem;">
-            <div class="sidebar-card" style="padding: 1.5rem; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); overflow-x: auto;">
-              <h3 style="font-size: 1.2rem; font-weight: 700; color: white; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">Weekly Timetable Grid</h3>
-              
-              <!-- Weekly Grid Table -->
-              <table style="width: 100%; border-collapse: collapse; min-width: 650px; font-size: 0.85rem; border: 1px solid var(--border-color);">
-                <thead>
-                  <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-secondary); background: rgba(255,255,255,0.02);">
-                    <th style="padding: 0.75rem; text-align: left; width: 100px; border-right: 1px solid var(--border-color);">Hour</th>
-                    <th style="padding: 0.75rem; text-align: center; border-right: 1px solid var(--border-color);">Mon</th>
-                    <th style="padding: 0.75rem; text-align: center; border-right: 1px solid var(--border-color);">Tue</th>
-                    <th style="padding: 0.75rem; text-align: center; border-right: 1px solid var(--border-color);">Wed</th>
-                    <th style="padding: 0.75rem; text-align: center; border-right: 1px solid var(--border-color);">Thu</th>
-                    <th style="padding: 0.75rem; text-align: center; border-right: 1px solid var(--border-color);">Fri</th>
-                    <th style="padding: 0.75rem; text-align: center;">Sat</th>
-                  </tr>
-                </thead>
-                <tbody id="timetable-grid-body">
-                  <!-- Generated hours rows dynamically -->
-                </tbody>
-              </table>
-              
+          <!-- Main Layout Split -->
+          <div style="display: flex; gap: 1.5rem; width: 100%; flex-wrap: wrap;">
+            
+            <!-- Left Column: Course Search & Selectors -->
+            <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 1rem;">
+              <div class="sidebar-card" style="padding: 1.25rem; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+                  <h3 style="font-size: 1.1rem; font-weight: 700; color: white; margin: 0;">Course Sections</h3>
+                  <button id="btn-reset-timetable" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; border-color: rgba(239, 68, 68, 0.4); color: var(--color-rose);">Reset</button>
+                </div>
+                
+                <!-- Search Input -->
+                <div style="position: relative;">
+                  <input type="text" id="timetable-course-search" placeholder="Search course or code..." class="form-control" style="padding-left: 2.25rem; font-size: 0.85rem; height: 36px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 8px; color: white; width: 100%;">
+                  <i data-lucide="search" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--text-secondary);"></i>
+                </div>
+
+                <div id="timetable-courses-list" style="display: flex; flex-direction: column; gap: 1rem; max-height: 520px; overflow-y: auto; padding-right: 0.25rem;">
+                  <!-- Dynamically populated courses & sections -->
+                </div>
+              </div>
             </div>
+
+            <!-- Right Column: Timetable Grid -->
+            <div style="flex: 2; min-width: 480px; display: flex; flex-direction: column; gap: 1rem;">
+              <div class="sidebar-card" style="padding: 1.25rem; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); overflow-x: auto;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+                  <h3 id="timetable-grid-title" style="font-size: 1.1rem; font-weight: 700; color: white; margin: 0;">Weekly Timetable Grid</h3>
+                  <div style="display: flex; gap: 0.5rem; font-size: 0.7rem;">
+                    <span style="display: inline-flex; align-items: center; gap: 0.25rem; color: #60a5fa;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3b82f6;"></span> Lecture</span>
+                    <span style="display: inline-flex; align-items: center; gap: 0.25rem; color: #f59e0b;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;"></span> Tutorial</span>
+                    <span style="display: inline-flex; align-items: center; gap: 0.25rem; color: #34d399;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span> Practical</span>
+                  </div>
+                </div>
+                
+                <!-- Weekly Grid Table -->
+                <table id="printable-timetable-table" style="width: 100%; border-collapse: collapse; min-width: 650px; font-size: 0.85rem; border: 1px solid var(--border-color);">
+                  <thead>
+                    <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-secondary); background: rgba(255,255,255,0.02);">
+                      <th style="padding: 0.75rem; text-align: left; width: 100px; border-right: 1px solid var(--border-color);">Hour</th>
+                      <th style="padding: 0.75rem; text-align: center; border-right: 1px solid var(--border-color);">Mon</th>
+                      <th style="padding: 0.75rem; text-align: center; border-right: 1px solid var(--border-color);">Tue</th>
+                      <th style="padding: 0.75rem; text-align: center; border-right: 1px solid var(--border-color);">Wed</th>
+                      <th style="padding: 0.75rem; text-align: center; border-right: 1px solid var(--border-color);">Thu</th>
+                      <th style="padding: 0.75rem; text-align: center; border-right: 1px solid var(--border-color);">Fri</th>
+                      <th style="padding: 0.75rem; text-align: center;">Sat</th>
+                    </tr>
+                  </thead>
+                  <tbody id="timetable-grid-body">
+                    <!-- Generated hours rows dynamically -->
+                  </tbody>
+                </table>
+                
+              </div>
+
+              <!-- Exam Dates & Schedule Panel -->
+              <div class="sidebar-card" id="timetable-exam-panel" style="padding: 1.25rem; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px);">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+                  <h3 style="font-size: 1.1rem; font-weight: 700; color: white; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                    <i data-lucide="file-text" style="color: var(--color-accent);"></i> Exam Schedule (Midsem & Compre)
+                  </h3>
+                  <span style="font-size: 0.75rem; color: var(--text-secondary);">Parsed from Timetable PDF</span>
+                </div>
+                <div id="timetable-exam-list" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                  <div style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; padding: 1rem;">
+                    Upload your BITS Timetable PDF to view Midsem & Compre exam dates for your enrolled courses.
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
           </div>
 
         </div>
@@ -1024,6 +1104,74 @@
             <button type="button" id="delete-event-btn" class="btn btn-secondary" style="border-color: var(--color-rose); color: var(--color-rose); display: none; padding: 0.5rem 0.75rem; font-size: 0.8rem;">Delete Task</button>
           </div>
           <button type="submit" id="save-event-btn" class="btn btn-primary">Save Note</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Custom Course Modal -->
+  <div class="modal-backdrop" id="modal-add-course-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">Add Custom Course & Section</span>
+        <button class="modal-close" id="btn-close-add-course">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form id="form-add-custom-course">
+        <div class="modal-body" style="display: flex; flex-direction: column; gap: 1rem;">
+          <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Course Code *</label>
+              <input type="text" class="form-control" id="custom-course-code" required placeholder="e.g. CS F301" style="background: rgba(18, 19, 35, 0.85); color: white;">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Course Title *</label>
+              <input type="text" class="form-control" id="custom-course-title" required placeholder="e.g. Principles of Prog Lang" style="background: rgba(18, 19, 35, 0.85); color: white;">
+            </div>
+          </div>
+
+          <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Section Type & Name *</label>
+              <input type="text" class="form-control" id="custom-section-name" required placeholder="e.g. L1 or T1 or P1" style="background: rgba(18, 19, 35, 0.85); color: white;">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Instructor Name</label>
+              <input type="text" class="form-control" id="custom-section-instructor" placeholder="e.g. Prof. Sharma" style="background: rgba(18, 19, 35, 0.85); color: white;">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Days *</label>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <label style="display: flex; align-items: center; gap: 0.35rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-days" value="M"> Mon</label>
+              <label style="display: flex; align-items: center; gap: 0.35rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-days" value="T"> Tue</label>
+              <label style="display: flex; align-items: center; gap: 0.35rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-days" value="W"> Wed</label>
+              <label style="display: flex; align-items: center; gap: 0.35rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-days" value="Th"> Thu</label>
+              <label style="display: flex; align-items: center; gap: 0.35rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-days" value="F"> Fri</label>
+              <label style="display: flex; align-items: center; gap: 0.35rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-days" value="S"> Sat</label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Hour Slots (1 to 9) *</label>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <label style="display: flex; align-items: center; gap: 0.25rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-hours" value="1"> H1 (8am)</label>
+              <label style="display: flex; align-items: center; gap: 0.25rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-hours" value="2"> H2 (9am)</label>
+              <label style="display: flex; align-items: center; gap: 0.25rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-hours" value="3"> H3 (10am)</label>
+              <label style="display: flex; align-items: center; gap: 0.25rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-hours" value="4"> H4 (11am)</label>
+              <label style="display: flex; align-items: center; gap: 0.25rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-hours" value="5"> H5 (12pm)</label>
+              <label style="display: flex; align-items: center; gap: 0.25rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-hours" value="6"> H6 (1pm)</label>
+              <label style="display: flex; align-items: center; gap: 0.25rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-hours" value="7"> H7 (2pm)</label>
+              <label style="display: flex; align-items: center; gap: 0.25rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-hours" value="8"> H8 (3pm)</label>
+              <label style="display: flex; align-items: center; gap: 0.25rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-hours" value="9"> H9 (4pm)</label>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-add-course">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Course</button>
         </div>
       </form>
     </div>

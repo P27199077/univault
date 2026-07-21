@@ -2261,7 +2261,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   
   initCloudSyncOnLoad();
   
-  // Timetable setup events
+  // Timetable setup & action events
   const btnSubmitDegree = document.getElementById('btn-submit-timetable-degree');
   if (btnSubmitDegree) {
     btnSubmitDegree.addEventListener('click', handleTimetableDegreeSubmit);
@@ -2276,15 +2276,68 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (btnFreezeTimetable) {
     btnFreezeTimetable.addEventListener('click', handleTimetableFreezeToggle);
   }
+
+  // Course live search listener
+  const searchInput = document.getElementById('timetable-course-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      const degree = localStorage.getItem('timetable_degree');
+      if (degree) renderTimetableWorkspace(degree);
+    });
+  }
+
+  // Export iCal (.ics) listener
+  const btnExportICS = document.getElementById('btn-export-ics');
+  if (btnExportICS) {
+    btnExportICS.addEventListener('click', exportTimetableToICS);
+  }
+
+  // Print / Save Image listener
+  const btnExportPNG = document.getElementById('btn-export-png');
+  if (btnExportPNG) {
+    btnExportPNG.addEventListener('click', () => {
+      window.print();
+    });
+  }
+
+  // Custom Course Modal handlers
+  const btnAddCustom = document.getElementById('btn-add-custom-course');
+  const modalAddCourse = document.getElementById('modal-add-course-backdrop');
+  const btnCloseAddCourse = document.getElementById('btn-close-add-course');
+  const btnCancelAddCourse = document.getElementById('btn-cancel-add-course');
+  const formAddCourse = document.getElementById('form-add-custom-course');
+
+  if (btnAddCustom && modalAddCourse) {
+    btnAddCustom.addEventListener('click', () => {
+      modalAddCourse.classList.add('active');
+    });
+  }
+  if (btnCloseAddCourse && modalAddCourse) {
+    btnCloseAddCourse.addEventListener('click', () => {
+      modalAddCourse.classList.remove('active');
+    });
+  }
+  if (btnCancelAddCourse && modalAddCourse) {
+    btnCancelAddCourse.addEventListener('click', () => {
+      modalAddCourse.classList.remove('active');
+    });
+  }
+  if (formAddCourse) {
+    formAddCourse.addEventListener('submit', handleAddCustomCourseSubmit);
+  }
   
   // Timetable PDF import events
   const btnImportTimetable = document.getElementById('btn-import-timetable');
+  const btnImportHeader = document.getElementById('btn-import-pdf-header');
   const fileInputTimetable = document.getElementById('timetable-pdf-file-input');
   
-  if (btnImportTimetable && fileInputTimetable) {
-    btnImportTimetable.addEventListener('click', () => {
-      fileInputTimetable.click();
-    });
+  if (fileInputTimetable) {
+    if (btnImportTimetable) {
+      btnImportTimetable.addEventListener('click', () => fileInputTimetable.click());
+    }
+    if (btnImportHeader) {
+      btnImportHeader.addEventListener('click', () => fileInputTimetable.click());
+    }
     
     fileInputTimetable.addEventListener('change', async (e) => {
       const file = e.target.files[0];
@@ -3493,7 +3546,9 @@ function renderTimetableWorkspace(degree) {
   const selectedSections = getSelectedTimetableSections();
   const isFrozen = localStorage.getItem('timetable_frozen') === 'true';
   
-  const leftColumn = document.querySelector('#timetable-workspace > div:first-child');
+  const searchQuery = (document.getElementById('timetable-course-search')?.value || '').toLowerCase().trim();
+
+  const leftColumn = document.querySelector('#timetable-workspace > div > div:first-child');
   const freezeBtn = document.getElementById('btn-freeze-timetable');
   
   if (isFrozen) {
@@ -3510,14 +3565,25 @@ function renderTimetableWorkspace(degree) {
     }
   }
   
-  const gridTitle = document.querySelector('#timetable-workspace h3');
+  const gridTitle = document.getElementById('timetable-grid-title');
   if (gridTitle) {
     gridTitle.innerHTML = isFrozen
       ? `<div style="display: flex; align-items: center; gap: 0.5rem;"><i data-lucide="shield-check" style="color: var(--color-emerald); width: 20px; height: 20px;"></i> Finalized Timetable (Locked)</div>`
       : 'Weekly Timetable Grid';
   }
+
+  // Filter courses based on search input
+  const filteredCourses = courses.filter(c => 
+    !searchQuery || 
+    c.code.toLowerCase().includes(searchQuery) || 
+    c.name.toLowerCase().includes(searchQuery)
+  );
+
+  if (filteredCourses.length === 0) {
+    coursesList.innerHTML = `<div style="padding: 1.5rem; text-align: center; color: var(--text-secondary); font-size: 0.85rem;">No matching courses found.</div>`;
+  }
   
-  courses.forEach(course => {
+  filteredCourses.forEach(course => {
     const courseCard = document.createElement('div');
     courseCard.style.cssText = `
       background: rgba(255, 255, 255, 0.02);
@@ -3551,83 +3617,65 @@ function renderTimetableWorkspace(degree) {
       { type: 'practicals', label: 'Practicals (P)' }
     ];
     
-    groups.forEach(group => {
-      const sects = course.sections[group.type];
-      if (sects && sects.length > 0) {
+    groups.forEach(grp => {
+      const sects = course.sections[grp.type] || [];
+      if (sects.length > 0) {
         const groupContainer = document.createElement('div');
-        groupContainer.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem;';
+        groupContainer.style.cssText = 'display: flex; flex-direction: column; gap: 0.35rem;';
         
-        const label = document.createElement('span');
-        label.style.cssText = 'font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;';
-        label.innerText = group.label;
-        groupContainer.appendChild(label);
+        const grpLabel = document.createElement('div');
+        grpLabel.style.cssText = 'font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.15rem;';
+        grpLabel.innerText = grp.label;
+        groupContainer.appendChild(grpLabel);
+        
+        const optionsRow = document.createElement('div');
+        optionsRow.style.cssText = 'display: flex; flex-wrap: wrap; gap: 0.35rem;';
         
         sects.forEach(sect => {
-          const row = document.createElement('label');
-          row.style.cssText = `
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0.5rem;
-            background: rgba(255,255,255,0.01);
-            border: 1px solid rgba(255,255,255,0.03);
-            border-radius: 6px;
+          const isSelected = selectedSections.includes(sect.id);
+          const pill = document.createElement('button');
+          pill.type = 'button';
+          
+          let badgeColor = 'var(--color-accent)';
+          if (grp.type === 'tutorials') badgeColor = '#f59e0b';
+          if (grp.type === 'practicals') badgeColor = 'var(--color-emerald)';
+
+          pill.style.cssText = `
+            font-size: 0.75rem;
+            padding: 0.35rem 0.6rem;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 0.8rem;
-            color: white;
             transition: all 0.2s;
+            border: 1px solid ${isSelected ? badgeColor : 'rgba(255, 255, 255, 0.1)'};
+            background: ${isSelected ? badgeColor : 'rgba(255, 255, 255, 0.03)'};
+            color: ${isSelected ? '#ffffff' : 'var(--text-secondary)'};
+            font-weight: ${isSelected ? '700' : '500'};
           `;
           
-          const details = document.createElement('div');
-          details.style.cssText = 'display: flex; flex-direction: column; gap: 0.15rem;';
+          const timeDesc = sect.slots.map(s => `${s.day}${s.hour}`).join(' ');
+          pill.innerText = `${sect.name} (${timeDesc})`;
+          pill.title = `Instructor: ${sect.instructor}`;
           
-          const name = document.createElement('span');
-          name.style.cssText = 'font-weight: 600; color: white;';
-          name.innerText = `${sect.name} - ${sect.instructor}`;
-          
-          const timings = document.createElement('span');
-          timings.style.cssText = 'font-size: 0.7rem; color: var(--text-secondary);';
-          timings.innerText = sect.slots.map(s => `${s.day} H${s.hour}`).join(', ');
-          
-          details.appendChild(name);
-          details.appendChild(timings);
-          row.appendChild(details);
-          
-          const checkbox = document.createElement('input');
-          checkbox.type = 'checkbox';
-          checkbox.style.cssText = 'cursor: pointer; margin-left: 0.5rem;';
-          
-          const isSelected = selectedSections.includes(sect.id);
-          checkbox.checked = isSelected;
-          
-          if (isSelected) {
-            row.style.borderColor = 'var(--color-accent)';
-            row.style.background = 'rgba(168, 85, 247, 0.05)';
+          if (!isFrozen) {
+            pill.addEventListener('click', () => {
+              let updated = [...selectedSections];
+              if (isSelected) {
+                updated = updated.filter(id => id !== sect.id);
+              } else {
+                // Deselect other sections of same type for this course
+                const otherSectIds = sects.map(s => s.id);
+                updated = updated.filter(id => !otherSectIds.includes(id));
+                updated.push(sect.id);
+              }
+              saveSelectedTimetableSections(updated);
+              renderTimetableWorkspace(degree);
+            });
           }
           
-          checkbox.addEventListener('change', () => {
-            let currentSelected = getSelectedTimetableSections();
-            
-            if (checkbox.checked) {
-              // Rule: Deselect other sections of the SAME TYPE for the SAME COURSE
-              const otherSectionIds = sects.map(s => s.id);
-              currentSelected = currentSelected.filter(id => !otherSectionIds.includes(id));
-              
-              currentSelected.push(sect.id);
-              showToast(`Selected ${course.code} ${sect.name}!`, 'success');
-            } else {
-              currentSelected = currentSelected.filter(id => id !== sect.id);
-              showToast(`Deselected ${course.code} ${sect.name}.`, 'success');
-            }
-            
-            saveSelectedTimetableSections(currentSelected);
-            renderTimetableWorkspace(degree);
-          });
-          
-          row.appendChild(checkbox);
-          groupContainer.appendChild(row);
+          optionsRow.appendChild(pill);
         });
         
+        groupContainer.appendChild(optionsRow);
         courseCard.appendChild(groupContainer);
       }
     });
@@ -3635,8 +3683,9 @@ function renderTimetableWorkspace(degree) {
     coursesList.appendChild(courseCard);
   });
   
-  // Render the weekly timetable grid
+  // Render weekly grid, compute stats, & render exam schedule
   renderWeeklyTimetableGrid(courses, selectedSections);
+  renderExamScheduleList();
 }
 
 function renderWeeklyTimetableGrid(courses, selectedSections) {
@@ -3659,18 +3708,26 @@ function renderWeeklyTimetableGrid(courses, selectedSections) {
   
   // Build lookup index: Day + Hour -> list of occupying sections
   const gridOccupants = {};
-  
+  let totalHoursCount = 0;
+  let clashCount = 0;
+  const activeDays = new Set();
+
   courses.forEach(course => {
-    // Collect all sections (lectures, tutorials, practicals)
     const allSections = [
-      ...course.sections.lectures,
-      ...course.sections.tutorials,
-      ...course.sections.practicals
+      ...(course.sections.lectures || []),
+      ...(course.sections.tutorials || []),
+      ...(course.sections.practicals || [])
     ];
     
     allSections.forEach(sect => {
       if (selectedSections.includes(sect.id)) {
+        const isTutorial = (course.sections.tutorials || []).some(t => t.id === sect.id);
+        const isPractical = (course.sections.practicals || []).some(p => p.id === sect.id);
+        const secType = isPractical ? 'practical' : (isTutorial ? 'tutorial' : 'lecture');
+
         sect.slots.forEach(slot => {
+          totalHoursCount++;
+          activeDays.add(slot.day);
           const key = `${slot.day}-${slot.hour}`;
           if (!gridOccupants[key]) {
             gridOccupants[key] = [];
@@ -3679,12 +3736,22 @@ function renderWeeklyTimetableGrid(courses, selectedSections) {
             courseCode: course.code,
             sectionName: sect.name,
             instructor: sect.instructor,
-            isPractical: course.sections.practicals.some(p => p.id === sect.id)
+            type: secType
           });
         });
       }
     });
   });
+
+  // Calculate clashes count
+  Object.values(gridOccupants).forEach(occList => {
+    if (occList.length > 1) {
+      clashCount += (occList.length - 1);
+    }
+  });
+
+  // Update Stats Bar UI
+  updateTimetableStats(totalHoursCount, clashCount, activeDays);
   
   // Generate Hour Rows (Hour 1 to Hour 9)
   for (let h = 1; h <= 9; h++) {
@@ -3709,10 +3776,21 @@ function renderWeeklyTimetableGrid(courses, selectedSections) {
       const occupants = gridOccupants[key] || [];
       
       if (occupants.length === 1) {
-        // Single section in this slot (Perfect!)
+        // Single section in this slot
         const occ = occupants[0];
-        tdCell.style.background = occ.isPractical ? 'rgba(16, 185, 129, 0.05)' : 'rgba(59, 130, 246, 0.05)';
-        tdCell.style.borderLeft = `3px solid ${occ.isPractical ? 'var(--color-emerald)' : 'var(--color-accent)'}`;
+        let bg = 'rgba(59, 130, 246, 0.08)';
+        let border = 'var(--color-accent)';
+        
+        if (occ.type === 'tutorial') {
+          bg = 'rgba(245, 158, 11, 0.08)';
+          border = '#f59e0b';
+        } else if (occ.type === 'practical') {
+          bg = 'rgba(16, 185, 129, 0.08)';
+          border = 'var(--color-emerald)';
+        }
+
+        tdCell.style.background = bg;
+        tdCell.style.borderLeft = `3px solid ${border}`;
         
         const codeSpan = document.createElement('div');
         codeSpan.style.cssText = 'font-weight: 700; color: white; font-size: 0.75rem;';
@@ -3720,13 +3798,14 @@ function renderWeeklyTimetableGrid(courses, selectedSections) {
         
         const detailsSpan = document.createElement('div');
         detailsSpan.style.cssText = 'font-size: 0.65rem; color: var(--text-secondary); font-weight: 500; margin-top: 0.15rem;';
-        detailsSpan.innerText = `${occ.sectionName} (${occ.instructor.split(' ').pop()})`;
+        const lastName = occ.instructor ? occ.instructor.split(' ').pop() : '';
+        detailsSpan.innerText = `${occ.sectionName}${lastName ? ' (' + lastName + ')' : ''}`;
         
         tdCell.appendChild(codeSpan);
         tdCell.appendChild(detailsSpan);
       } else if (occupants.length > 1) {
-        // Multi section CLASH! (Red Warning Slot!)
-        tdCell.style.background = 'rgba(239, 68, 68, 0.1)';
+        // Multi section CLASH!
+        tdCell.style.background = 'rgba(239, 68, 68, 0.15)';
         tdCell.style.borderLeft = '3px solid var(--color-rose)';
         
         const warning = document.createElement('div');
@@ -3747,6 +3826,170 @@ function renderWeeklyTimetableGrid(courses, selectedSections) {
     tbody.appendChild(tr);
   }
   lucide.createIcons();
+}
+
+function updateTimetableStats(hours, clashes, activeDays) {
+  const hoursEl = document.getElementById('stat-total-hours');
+  const clashesEl = document.getElementById('stat-clashes-count');
+  const iconBox = document.getElementById('stat-clash-icon-box');
+  const freeDaysEl = document.getElementById('stat-free-days');
+
+  if (hoursEl) hoursEl.innerText = `${hours} Hours`;
+
+  if (clashesEl && iconBox) {
+    if (clashes > 0) {
+      clashesEl.innerText = `${clashes} Clash${clashes > 1 ? 'es' : ''}`;
+      clashesEl.style.color = 'var(--color-rose)';
+      iconBox.style.background = 'rgba(239, 68, 68, 0.15)';
+      iconBox.style.color = 'var(--color-rose)';
+      iconBox.innerHTML = `<i data-lucide="alert-triangle"></i>`;
+    } else {
+      clashesEl.innerText = `0 Clashes`;
+      clashesEl.style.color = 'var(--color-emerald)';
+      iconBox.style.background = 'rgba(16, 185, 129, 0.15)';
+      iconBox.style.color = 'var(--color-emerald)';
+      iconBox.innerHTML = `<i data-lucide="shield-check"></i>`;
+    }
+  }
+
+  if (freeDaysEl) {
+    const allDays = ['M', 'T', 'W', 'Th', 'F', 'S'];
+    const free = allDays.filter(d => !activeDays.has(d));
+    const dayNames = { M: 'Mon', T: 'Tue', W: 'Wed', Th: 'Thu', F: 'Fri', S: 'Sat' };
+    
+    if (free.length === 0) {
+      freeDaysEl.innerText = 'None';
+    } else {
+      freeDaysEl.innerText = free.map(d => dayNames[d]).join(', ');
+    }
+  }
+}
+
+function handleAddCustomCourseSubmit(e) {
+  e.preventDefault();
+  const code = document.getElementById('custom-course-code').value.trim();
+  const title = document.getElementById('custom-course-title').value.trim();
+  const secName = document.getElementById('custom-section-name').value.trim();
+  const instructor = document.getElementById('custom-section-instructor').value.trim() || 'Staff';
+
+  const dayBoxes = Array.from(document.querySelectorAll('input[name="custom-days"]:checked')).map(cb => cb.value);
+  const hourBoxes = Array.from(document.querySelectorAll('input[name="custom-hours"]:checked')).map(cb => parseInt(cb.value));
+
+  if (dayBoxes.length === 0 || hourBoxes.length === 0) {
+    showToast("Please select at least one day and one hour slot.", "error");
+    return;
+  }
+
+  const slots = [];
+  dayBoxes.forEach(day => {
+    hourBoxes.forEach(hour => {
+      slots.push({ day, hour });
+    });
+  });
+
+  const secId = `custom-${Date.now()}`;
+  const isPractical = secName.toUpperCase().startsWith('P');
+  const isTutorial = secName.toUpperCase().startsWith('T');
+
+  const newCourse = {
+    code: code,
+    name: title,
+    sections: {
+      lectures: isPractical || isTutorial ? [] : [{ id: secId, name: secName, instructor, slots }],
+      tutorials: isTutorial ? [{ id: secId, name: secName, instructor, slots }] : [],
+      practicals: isPractical ? [{ id: secId, name: secName, instructor, slots }] : []
+    }
+  };
+
+  const degree = localStorage.getItem('timetable_degree') || 'custom';
+  let customList = JSON.parse(localStorage.getItem('custom_timetable_courses') || '[]');
+  
+  if (degree !== 'custom') {
+    if (!TIMETABLE_COURSES_DATA[degree]) TIMETABLE_COURSES_DATA[degree] = [];
+    TIMETABLE_COURSES_DATA[degree].push(newCourse);
+  } else {
+    customList.push(newCourse);
+    localStorage.setItem('custom_timetable_courses', JSON.stringify(customList));
+  }
+
+  const selected = getSelectedTimetableSections();
+  selected.push(secId);
+  saveSelectedTimetableSections(selected);
+
+  document.getElementById('modal-add-course-backdrop')?.classList.remove('active');
+  const formAdd = document.getElementById('form-add-custom-course');
+  if (formAdd) formAdd.reset();
+  
+  showToast(`Added ${code} (${secName}) to timetable!`, 'success');
+  renderTimetableWorkspace(degree);
+}
+
+function exportTimetableToICS() {
+  const degree = localStorage.getItem('timetable_degree') || 'A7';
+  const courses = degree === 'custom'
+    ? JSON.parse(localStorage.getItem('custom_timetable_courses') || '[]')
+    : (TIMETABLE_COURSES_DATA[degree] || []);
+  const selectedSections = getSelectedTimetableSections();
+
+  if (selectedSections.length === 0) {
+    showToast("No sections selected to export!", "error");
+    return;
+  }
+
+  let icsContent = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Univault//Timetable Planner//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH"
+  ];
+
+  const hourToTime = {
+    1: "080000", 2: "090000", 3: "100000", 4: "110000", 5: "120000",
+    6: "130000", 7: "140000", 8: "150000", 9: "160000"
+  };
+  const hourToEndTime = {
+    1: "085000", 2: "095000", 3: "105000", 4: "115000", 5: "125000",
+    6: "135000", 7: "145000", 8: "155000", 9: "165000"
+  };
+  const dayToICal = { M: "MO", T: "TU", W: "WE", Th: "TH", F: "FR", S: "SA" };
+
+  courses.forEach(c => {
+    const allSections = [
+      ...(c.sections.lectures || []),
+      ...(c.sections.tutorials || []),
+      ...(c.sections.practicals || [])
+    ];
+    allSections.forEach(s => {
+      if (selectedSections.includes(s.id)) {
+        s.slots.forEach(slot => {
+          const startTime = hourToTime[slot.hour] || "080000";
+          const endTime = hourToEndTime[slot.hour] || "085000";
+          const dayByDay = dayToICal[slot.day] || "MO";
+
+          icsContent.push("BEGIN:VEVENT");
+          icsContent.push(`SUMMARY:${c.code} - ${s.name}`);
+          icsContent.push(`DESCRIPTION:${c.name} | Instructor: ${s.instructor}`);
+          icsContent.push(`RRULE:FREQ=WEEKLY;BYDAY=${dayByDay}`);
+          icsContent.push(`DTSTART:20260801T${startTime}`);
+          icsContent.push(`DTEND:20260801T${endTime}`);
+          icsContent.push("END:VEVENT");
+        });
+      }
+    });
+  });
+
+  icsContent.push("END:VCALENDAR");
+
+  const blob = new Blob([icsContent.join("\r\n")], { type: "text/calendar;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `BITS_Timetable_${degree}.ics`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  showToast("Exported timetable to BITS_Timetable.ics!", "success");
 }
 
 async function parseTimetablePDFFile(file) {
@@ -3778,10 +4021,12 @@ async function parseTimetablePDFFile(file) {
 function parseTimetablePDF(text) {
   const lines = text.split('\n');
   const coursesMap = {};
+  const examMap = [];
   
   const courseCodeRegex = /\b([A-Z]{2,5})\s*([F|C|G|K|A-Z]?\d{3,4}(?:-\d)?)\b/;
   const sectionRegex = /\b([LTP]\d+)\b/;
   const dayTokens = ['M', 'T', 'W', 'Th', 'F', 'S'];
+  const dateRegex = /\b(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)\b/;
   
   for (let line of lines) {
     const trimmed = line.trim();
@@ -3792,6 +4037,23 @@ function parseTimetablePDF(text) {
     
     const code = `${codeMatch[1]} ${codeMatch[2]}`;
     
+    // Check if line contains Exam Info (Midsem / Compre)
+    const dateMatch = trimmed.match(dateRegex);
+    if (dateMatch || trimmed.toLowerCase().includes('midsem') || trimmed.toLowerCase().includes('compre') || trimmed.includes('FN') || trimmed.includes('AN')) {
+      const type = trimmed.toLowerCase().includes('midsem') ? 'Midsem' : (trimmed.toLowerCase().includes('compre') ? 'Compre' : 'Exam');
+      const timeSlot = trimmed.includes('FN') ? 'Forenoon (9:30 AM)' : (trimmed.includes('AN') ? 'Afternoon (2:00 PM)' : 'Scheduled');
+      const examDate = dateMatch ? dateMatch[1] : 'TBA';
+      
+      if (!examMap.some(e => e.code === code && e.type === type)) {
+        examMap.push({
+          code,
+          type,
+          date: examDate,
+          time: timeSlot
+        });
+      }
+    }
+
     const secMatch = trimmed.match(sectionRegex);
     if (!secMatch) continue;
     const secName = secMatch[1];
@@ -3868,7 +4130,61 @@ function parseTimetablePDF(text) {
     }
   }
   
+  if (examMap.length > 0) {
+    localStorage.setItem('custom_timetable_exams', JSON.stringify(examMap));
+  }
+  
   return Object.values(coursesMap);
+}
+
+function renderExamScheduleList() {
+  const container = document.getElementById('timetable-exam-list');
+  if (!container) return;
+  
+  const exams = JSON.parse(localStorage.getItem('custom_timetable_exams') || '[]');
+  const selectedSections = getSelectedTimetableSections();
+
+  if (exams.length === 0) {
+    container.innerHTML = `
+      <div style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; padding: 1rem;">
+        Upload your BITS Timetable PDF to view Midsem & Compre exam dates for your enrolled courses.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = '';
+  exams.forEach(exam => {
+    const card = document.createElement('div');
+    card.style.cssText = `
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    `;
+
+    const isMidsem = exam.type === 'Midsem';
+
+    card.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <span style="font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 6px; background: ${isMidsem ? 'rgba(59, 130, 246, 0.15)' : 'rgba(168, 85, 247, 0.15)'}; color: ${isMidsem ? '#60a5fa' : '#c084fc'}; border: 1px solid ${isMidsem ? 'rgba(59, 130, 246, 0.3)' : 'rgba(168, 85, 247, 0.3)'};">
+          ${exam.type}
+        </span>
+        <div>
+          <div style="font-size: 0.85rem; font-weight: 700; color: white;">${exam.code}</div>
+          <div style="font-size: 0.75rem; color: var(--text-secondary);">${exam.time}</div>
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 0.85rem; font-weight: 700; color: var(--color-accent);">${exam.date}</div>
+      </div>
+    `;
+
+    container.appendChild(card);
+  });
 }
 
 function handleTimetableFreezeToggle() {

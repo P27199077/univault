@@ -1868,17 +1868,26 @@ header {
   body * {
     visibility: hidden;
   }
-  #view-calendar, #view-calendar * {
+  #view-calendar, #view-calendar *, #view-timetable, #view-timetable * {
     visibility: visible;
   }
-  #view-calendar {
+  #view-calendar, #view-timetable {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
   }
-  .calendar-controls-bar, .calendar-footer-stats, .notes-input-bar, .note-delete-btn, .calendar-sidebar-panel {
+  #timetable-header-actions, #timetable-course-search, #timetable-courses-list, .sidebar-nav, .nav-item {
     display: none !important;
+  }
+  table#printable-timetable-table {
+    border: 2px solid #000 !important;
+    color: #000 !important;
+  }
+  table#printable-timetable-table td, table#printable-timetable-table th {
+    border: 1px solid #333 !important;
+    color: #000 !important;
+    background: #fff !important;
   }
   .calendar-board {
     border: 2px solid #000000 !important;
