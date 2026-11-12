@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#734a35">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="study.css">
+  <link rel="stylesheet" href="room.css">
   <link rel="preload" as="image" href="assets/cozy-study.webp">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -230,12 +231,41 @@
       <!-- Dashboard View Panel -->
       <section class="view-panel active" id="view-dashboard">
         
-        <div class="overview-banner">
-          <div class="overview-copy"><span class="banner-kicker"><span class="study-sun" aria-hidden="true">✳</span> YOUR OWN LITTLE CORNER</span><h2>Pull up a chair.<br>Make room to grow.</h2><p>The books are here. The lamp is on.<br>Let’s take your semester one page at a time.</p><button class="banner-link" id="btn-overview-calendar">Open your planner <i data-lucide="arrow-up-right"></i></button></div>
-          <div class="study-room-view"><img class="study-room-image" src="assets/cozy-study.webp" width="1536" height="1024" alt="Sunlight fills a cozy study with a walnut desk, olive chair, warm lamp, and shelves of books." fetchpriority="high"><button type="button" class="room-bookshelf-hotspot" id="btn-open-bookshelf"><i data-lucide="library-big"></i><span>Open your bookshelf</span><i data-lucide="arrow-down-right"></i></button></div>
-          <span class="room-caption">THE STUDY · YOUR SPACE TO GROW</span>
+        <div class="room-stage" id="room-stage" data-view="room">
+          <div class="room-canvas-wrap" id="room-canvas-wrap" aria-hidden="true"></div>
+          <div class="room-title"><span class="eyebrow">THE UNIVAULT HOUSE</span><h2>Your little study.</h2><p id="room-instruction">Pick a spot. Make yourself at home.</p></div>
+          <div class="room-hotspots" id="room-hotspots" aria-label="Objects in your study">
+            <button type="button" class="room-object room-object-shelf" id="btn-open-bookshelf"><i data-lucide="library-big"></i><span><strong>The bookshelf</strong><small>Your semesters &amp; subjects</small></span><i data-lucide="arrow-up-right"></i></button>
+            <button type="button" class="room-object room-object-planner" data-study-view="calendar"><i data-lucide="calendar-days"></i><span><strong>The wall planner</strong><small>Calendar</small></span></button>
+            <button type="button" class="room-object room-object-notepad" data-study-view="todo"><i data-lucide="notebook-pen"></i><span><strong>The desk notepad</strong><small>Today’s tasks</small></span></button>
+            <button type="button" class="room-object room-object-journal" data-study-view="cgpa"><i data-lucide="graduation-cap"></i><span><strong>Your progress journal</strong><small>Grades &amp; CGPA</small></span></button>
+          </div>
+          <div class="room-controls"><button type="button" class="btn btn-secondary" id="btn-return-room" hidden><i data-lucide="arrow-left"></i> Back to the room</button><button type="button" class="room-journal-button" id="btn-room-journal" aria-expanded="false" aria-controls="room-journal"><i data-lucide="notebook-tabs"></i> Study at a glance</button></div>
+          <div class="room-floor-note"><span>✳</span> A little space for everything you’re learning.</div>
+          <div class="shelf-workspace" id="shelf-workspace" hidden>
+        <div class="board-section-heading"><div><p class="eyebrow">COLLECTED ON YOUR SHELF</p><h2 id="course-shelf-heading" tabindex="-1">Your course shelf <span id="board-result-count" class="result-count"></span></h2></div><p>Hover a spine. Pull out a subject. Settle in.</p></div>
+        <div class="board-toolbar">
+          <div class="search-input-wrapper course-search"><i data-lucide="search" class="search-icon"></i><input class="form-control" id="dashboard-search" type="search" aria-label="Search courses" placeholder="Find a course or code…"></div>
+          <select class="form-control" id="dashboard-semester-filter" aria-label="Filter by semester"><option value="all">All semesters</option></select>
+          <details class="dashboard-tools"><summary class="btn btn-secondary"><i data-lucide="sliders-horizontal"></i> Manage <i data-lucide="chevron-down"></i></summary><div class="dashboard-tools-menu">          <button class="btn btn-secondary" id="btn-import-performance" style="display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="upload-cloud"></i> Import performance PDF
+          </button>
+           <input type="file" id="performance-sheet-file-input" accept="application/pdf" style="display: none;">
+          <button class="btn btn-secondary" id="btn-clear-all-dashboard" style="display: flex; align-items: center; gap: 0.5rem; border-color: rgba(239, 68, 68, 0.4); color: var(--color-rose);">
+            <i data-lucide="trash-2"></i> Clear dashboard
+          </button>
+</div></details>
         </div>
-        <div class="desk-summary">
+        <div class="book-category-legend" aria-label="Book categories"><span><i style="background:#583a2b"></i>CDC · dark walnut</span><span><i style="background:#b18b63"></i>HuEL · warm tan</span><span><i style="background:#875b3e"></i>DEL · chestnut</span><span><i style="background:#71503c"></i>OpEL · coffee</span></div>
+        <p class="sr-only" id="dashboard-search-status" role="status"></p>
+        <!-- Semesters and courses -->
+        <div class="semester-container" id="semester-board">
+          <!-- Dynamically populated semester columns -->
+        </div>
+
+          </div>
+        </div>
+        <div id="room-journal" hidden><div class="desk-summary">
         <!-- Metrics Summary Grid -->
         <div class="metrics-grid">
           <div class="metric-card purple">
@@ -277,31 +307,7 @@
         </div>
 
         <div class="focus-card"><div class="focus-heading"><span><i data-lucide="circle-check"></i> Your course checklist</span><span id="focus-count" class="focus-count">0 left</span></div><div id="focus-task-list" class="focus-task-list"></div><div class="focus-footer"><span id="focus-progress-label">Your progress</span><span id="focus-progress-value">0%</span></div><div class="focus-progress-track"><div id="focus-progress-bar"></div></div></div>
-        </div>
-        <nav class="desk-shortcuts" aria-label="Study desk shortcuts">
-          <button type="button" data-study-view="materials"><span class="desk-object"><i data-lucide="library-big"></i></span><span><strong>The filing shelf</strong><small>Notes &amp; materials</small></span><i data-lucide="arrow-up-right"></i></button>
-          <button type="button" data-study-view="calendar"><span class="desk-object"><i data-lucide="calendar-days"></i></span><span><strong>The wall calendar</strong><small>Dates &amp; plans</small></span><i data-lucide="arrow-up-right"></i></button>
-          <button type="button" data-study-view="todo"><span class="desk-object"><i data-lucide="notebook-pen"></i></span><span><strong>Your daily notepad</strong><small>Today’s tasks</small></span><i data-lucide="arrow-up-right"></i></button>
-          <button type="button" data-study-view="cgpa"><span class="desk-object"><i data-lucide="graduation-cap"></i></span><span><strong>The progress journal</strong><small>Grades &amp; CGPA</small></span><i data-lucide="arrow-up-right"></i></button>
-        </nav>
-        <div class="board-section-heading"><div><p class="eyebrow">COLLECTED ON YOUR SHELF</p><h2 id="course-shelf-heading" tabindex="-1">Your course shelf <span id="board-result-count" class="result-count"></span></h2></div><p>One shelf per semester. One book per subject.</p></div>
-        <div class="board-toolbar">
-          <div class="search-input-wrapper course-search"><i data-lucide="search" class="search-icon"></i><input class="form-control" id="dashboard-search" type="search" aria-label="Search courses" placeholder="Find a course or code…"></div>
-          <select class="form-control" id="dashboard-semester-filter" aria-label="Filter by semester"><option value="all">All semesters</option></select>
-          <details class="dashboard-tools"><summary class="btn btn-secondary"><i data-lucide="sliders-horizontal"></i> Manage <i data-lucide="chevron-down"></i></summary><div class="dashboard-tools-menu">          <button class="btn btn-secondary" id="btn-import-performance" style="display: flex; align-items: center; gap: 0.5rem;">
-            <i data-lucide="upload-cloud"></i> Import performance PDF
-          </button>
-           <input type="file" id="performance-sheet-file-input" accept="application/pdf" style="display: none;">
-          <button class="btn btn-secondary" id="btn-clear-all-dashboard" style="display: flex; align-items: center; gap: 0.5rem; border-color: rgba(239, 68, 68, 0.4); color: var(--color-rose);">
-            <i data-lucide="trash-2"></i> Clear dashboard
-          </button>
-</div></details>
-        </div>
-        <p class="sr-only" id="dashboard-search-status" role="status"></p>
-        <!-- Semesters and courses -->
-        <div class="semester-container" id="semester-board">
-          <!-- Dynamically populated semester columns -->
-        </div>
+        </div></div>
 
       </section>
 
@@ -363,7 +369,7 @@
         <!-- Detail Header -->
         <div class="course-detail-header">
           <button class="btn btn-secondary btn-sm" id="btn-back-to-dashboard">
-            <i data-lucide="arrow-left"></i> Back to My study
+            <i data-lucide="book-x"></i> Close book
           </button>
           <div class="course-detail-title-row">
             <h2 id="detail-course-name">Course Name</h2>
@@ -376,14 +382,28 @@
           </div>
         </div>
 
-        <!-- 2 Column Workspace Grid -->
-        <div class="course-detail-workspace">
-          
-          <!-- Left Column: Folders Grid -->
+        <div class="book-spread" id="course-book">
+          <div class="book-opening-cover" aria-hidden="true"><span id="book-cover-code"></span><strong id="book-cover-title"></strong><small>THE UNIVAULT COLLECTION</small></div>
+          <aside class="book-left-page">
+            <span class="book-edition" id="book-edition">CDC · COURSE BOOK</span><h3>Contents</h3><p>Everything you’ve collected,<br>between these covers.</p>
+            <div class="book-section-tabs" role="tablist" aria-label="Subject book sections">
+              <button type="button" role="tab" id="book-tab-slides" data-book-section="slides" aria-controls="book-section-slides" aria-selected="true">01 <span>Slides &amp; presentations</span></button>
+              <button type="button" role="tab" id="book-tab-notes" data-book-section="notes" aria-controls="book-section-notes" aria-selected="false" tabindex="-1">02 <span>Lecture notes</span></button>
+              <button type="button" role="tab" id="book-tab-papers" data-book-section="papers" aria-controls="book-section-papers" aria-selected="false" tabindex="-1">03 <span>Papers &amp; solutions</span></button>
+              <button type="button" role="tab" id="book-tab-handouts" data-book-section="handouts" aria-controls="book-section-handouts" aria-selected="false" tabindex="-1">04 <span>Handouts &amp; syllabus</span></button>
+              <button type="button" role="tab" id="book-tab-notebook" data-book-section="notebook" aria-controls="book-section-notebook" aria-selected="false" tabindex="-1">05 <span>Your notepad</span></button>
+              <button type="button" role="tab" id="book-tab-tasks" data-book-section="tasks" aria-controls="book-section-tasks" aria-selected="false" tabindex="-1">06 <span>Checklist &amp; tasks</span></button>
+            </div>
+            <button type="button" class="book-edit-details" id="btn-book-edit"><i data-lucide="pencil"></i> Edit course &amp; category</button>
+            <span class="book-page-number">CONTENTS</span>
+          </aside>
+          <div class="book-right-page">
+            <div class="book-running-head"><span id="book-running-title">Course materials</span><span id="book-page-index">01</span></div>
+            <div id="book-section-content">
           <div class="folders-column">
             
             <!-- Slides Folder -->
-            <div class="folder-card" data-category="slides">
+            <div class="folder-card book-content-panel" data-category="slides" id="book-section-slides" role="tabpanel" aria-labelledby="book-tab-slides">
               <div class="folder-header">
                 <div class="folder-title">
                   <i data-lucide="presentation" class="folder-icon slides"></i>
@@ -402,7 +422,7 @@
             </div>
 
             <!-- Notes Folder -->
-            <div class="folder-card" data-category="notes">
+            <div class="folder-card book-content-panel" data-category="notes" id="book-section-notes" role="tabpanel" aria-labelledby="book-tab-notes">
               <div class="folder-header">
                 <div class="folder-title">
                   <i data-lucide="file-edit" class="folder-icon notes"></i>
@@ -421,7 +441,7 @@
             </div>
 
             <!-- Papers & Solutions Folder -->
-            <div class="folder-card" data-category="papers">
+            <div class="folder-card book-content-panel" data-category="papers" id="book-section-papers" role="tabpanel" aria-labelledby="book-tab-papers">
               <div class="folder-header">
                 <div class="folder-title">
                   <i data-lucide="scroll" class="folder-icon papers"></i>
@@ -440,7 +460,7 @@
             </div>
 
             <!-- Handouts Folder -->
-            <div class="folder-card" data-category="handouts">
+            <div class="folder-card book-content-panel" data-category="handouts" id="book-section-handouts" role="tabpanel" aria-labelledby="book-tab-handouts">
               <div class="folder-header">
                 <div class="folder-title">
                   <i data-lucide="info" class="folder-icon handouts"></i>
@@ -460,10 +480,17 @@
 
           </div>
 
-          <!-- Right Column: Sidebar (Notepad & Checklist) -->
-          <div class="workspace-sidebar">
-            <!-- Checklist Card -->
-            <div class="sidebar-card">
+<div class="book-content-panel" id="book-section-notebook" role="tabpanel" aria-labelledby="book-tab-notebook" hidden><div class="sidebar-card notepad-card">
+              <div class="sidebar-card-header">
+                <i data-lucide="file-text"></i>
+                <h3>Course Notepad</h3>
+              </div>
+              <div class="notes-container">
+                <textarea class="notes-textarea" id="detail-notes-textarea" placeholder="Start typing class notes, reference links..."></textarea>
+                <div class="notes-status" id="detail-notes-status">Notes saved automatically</div>
+              </div>
+            </div></div>
+<div class="book-content-panel" id="book-section-tasks" role="tabpanel" aria-labelledby="book-tab-tasks" hidden><div class="sidebar-card">
               <div class="sidebar-card-header">
                 <i data-lucide="check-square"></i>
                 <h3>Checklist & Tasks</h3>
@@ -477,21 +504,15 @@
               <div class="req-list" id="detail-req-list">
                 <!-- Checklist items -->
               </div>
+            </div></div>
             </div>
-
-            <!-- Notepad Card -->
-            <div class="sidebar-card notepad-card">
-              <div class="sidebar-card-header">
-                <i data-lucide="file-text"></i>
-                <h3>Course Notepad</h3>
-              </div>
-              <div class="notes-container">
-                <textarea class="notes-textarea" id="detail-notes-textarea" placeholder="Start typing class notes, reference links..."></textarea>
-                <div class="notes-status" id="detail-notes-status">Notes saved automatically</div>
-              </div>
+            <div class="book-file-preview" id="book-file-preview" hidden>
+              <button type="button" class="book-preview-back" id="book-preview-back"><i data-lucide="arrow-left"></i> Back to section</button>
+              <h3 id="book-preview-title"></h3><div id="book-preview-body" role="region" aria-label="Document preview"></div>
+              <button type="button" class="btn btn-secondary btn-sm" id="book-download-file"><i data-lucide="download"></i> Download file</button>
             </div>
+            <span class="book-page-number" id="book-page-footer">YOUR COURSE COLLECTION</span>
           </div>
-
         </div>
       </section>
 
@@ -1057,6 +1078,7 @@
         <div class="modal-body">
           <div class="form-group"><label class="form-label" for="course-type-select">Course type</label><select class="form-control" id="course-type-select"><option value="course">Course selected</option><option value="placeholder">Elective placeholder</option></select></div>
           <div class="form-group" id="course-placeholder-fields" hidden><label class="form-label" for="course-elective-type">Elective type</label><select class="form-control" id="course-elective-type"><option value="DEL">DEL — Discipline elective</option><option value="HuEL">HuEL — Humanities elective</option><option value="OpEL">OpEL — Open elective</option></select><p class="academic-caption">Reserve the credits now. Choose the actual course later; planned credits do not count toward earned credits or GPA.</p></div>
+          <div class="form-group" id="course-category-field"><label class="form-label" for="course-category-select">Book category</label><select class="form-control" id="course-category-select"><option value="CDC">CDC — Core course · dark walnut</option><option value="HuEL">HuEL — Humanities elective · warm tan</option><option value="DEL">DEL — Discipline elective · chestnut</option><option value="OpEL">OpEL — Open elective · coffee brown</option></select></div>
           <div class="form-group" id="course-name-field">
             <label class="form-label" for="course-name-input">Course Name</label>
             <input type="text" class="form-control" id="course-name-input" placeholder="e.g., Intro to Computer Science" required>
@@ -1075,7 +1097,7 @@
             <label class="form-label" for="course-credits-input">Credits / Units</label>
             <input type="number" step="0.5" min="0" class="form-control" id="course-credits-input" placeholder="e.g., 3.0, 4.0" max="50" required>
           </div>
-          <div class="form-group">
+          <div class="form-group" hidden>
             <label class="form-label">Theme Accent Color</label>
             <div class="theme-options" id="theme-color-selector">
               <!-- Colors dynamically generated -->

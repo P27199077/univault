@@ -1,4 +1,6 @@
-import {GRADE_POINTS, GRADE_OPTIONS, buildCourseRecord, estimateSemester, courseGrade, normalizeGrade, academicTotals, parsePerformancePages, mergePerformanceSheet} from './academics.js';
+import {courseCategory, COURSE_BROWNS, GRADE_POINTS, GRADE_OPTIONS, buildCourseRecord, estimateSemester, courseGrade, normalizeGrade, academicTotals, parsePerformancePages, mergePerformanceSheet} from './academics.js';
+import {BookReader} from './book-reader.js';
+import {StudyRoom} from './room.js';
 import {createBackend, WORKSPACE_KEYS, validateSnapshot} from './backend.js';
 
 const config = window.UNIVAULT_CONFIG || {};
@@ -45,6 +47,10 @@ let activeCourseId = null;
 let activeDrawerTab = 'tab-materials';
 let draggedCourseId = null;
 let activeThemeColor = 'indigo';
+let studyRoom=null;
+let bookReader=null;
+let bookInFlight=false;
+let navigationRevision=0;
 
 // ================= ACCOUNT SESSION =================
 async function initAuth() {
@@ -187,7 +193,7 @@ function loadStateFromStorage() {
   
   if (storedSemesters && storedCourses) {
     state.semesters = JSON.parse(storedSemesters);
-    state.courses = JSON.parse(storedCourses);
+    state.courses = JSON.parse(storedCourses).map(course=>({...course,courseCategory:courseCategory(course)}));
   } else {
     state.semesters = [];
     state.courses = [];
@@ -204,6 +210,7 @@ function saveStateToStorage() {
 async function renderBoard() {
   const container = document.getElementById('semester-board');
   if (!container) return;
+  studyRoom?.update(state.semesters,state.courses);
   container.innerHTML = '';
   renderDashboardOverview();
   syncDashboardSemesterFilter();
@@ -224,15 +231,9 @@ async function renderBoard() {
     return;
   }
   
-  // Sort semesters: completed ones go to the back/end of the list
-  const sortedSemesters = [...state.semesters].sort((a, b) => {
-    const aDone = !!a.completed;
-    const bDone = !!b.completed;
-    if (aDone && !bDone) return 1;
-    if (!aDone && bDone) return -1;
-    return 0;
-  });
-  
+  // Keep semester levels stable when a semester is marked complete.
+  const sortedSemesters=state.semesters;
+
   // Each semester is a shelf; course records render as clickable books.
   for (const sem of sortedSemesters) {
     const col = document.createElement('div');
@@ -413,111 +414,26 @@ async function renderBoard() {
 }
 
 async function buildCourseCard(course) {
-  const card = document.createElement('div');
-  card.className = course.isPlaceholder ? 'course-card elective-placeholder' : 'course-card';
-  card.id = `course-card-${course.id}`;
-  card.dataset.id = course.id;
-  card.style.setProperty('--book-color', ACCENT_COLORS[course.themeColor || 'indigo']);
-  card.draggable = true;
-  card.setAttribute('role', 'group');
-  card.setAttribute('aria-label', course.name);
-  
-  // Set theme color background bar
-  const themeBar = document.createElement('div');
-  themeBar.className = 'course-theme-bar';
-  themeBar.style.backgroundColor = ACCENT_COLORS[course.themeColor || 'indigo'];
-  card.appendChild(themeBar);
-  
-  // Content details
-  const codeRow = document.createElement('div');
-  codeRow.className = 'course-book-topline';
-  codeRow.style.display = 'flex';
-  codeRow.style.justifyContent = 'space-between';
-  codeRow.style.alignItems = 'center';
-  codeRow.style.width = '100%';
-  
-  const code = document.createElement('div');
-  code.className = 'course-code';
-  code.innerText = course.code || 'N/A';
-  codeRow.appendChild(code);
-  
-  if (course.credits) {
-    const creditsBadge = document.createElement('span');
-    creditsBadge.className = 'course-materials-count';
-    creditsBadge.style.fontSize = '0.75rem';
-    creditsBadge.style.background = 'rgba(255,255,255,0.06)';
-    creditsBadge.style.padding = '2px 6px';
-    creditsBadge.style.borderRadius = '4px';
-    creditsBadge.style.color = 'var(--text-secondary)';
-    creditsBadge.innerText = `${course.credits} ${course.isPlaceholder || !courseGrade(course) ? 'planned Cr' : 'Cr'}`;
-    codeRow.appendChild(creditsBadge);
+  const card=document.createElement('div');card.className='course-card spine-volume'+(course.isPlaceholder?' elective-placeholder':'');
+  card.id=`course-card-${course.id}`;card.dataset.id=course.id;card.draggable=true;card.setAttribute('role','group');card.setAttribute('aria-label',course.name);
+  card.style.setProperty('--book-color',COURSE_BROWNS[courseCategory(course)]);
+  const open=document.createElement('button');open.type='button';open.className='spine-open';open.setAttribute('aria-label',`Open ${course.name}`);open.title=`${course.name} · ${course.code} · ${courseCategory(course)}`;
+  const category=document.createElement('span');category.className='spine-category';category.textContent=courseCategory(course);
+  const title=document.createElement('span');title.className='spine-title';title.textContent=course.name;
+  const code=document.createElement('span');code.className='spine-code';code.textContent=course.code || '';
+  open.append(category,title,code);open.addEventListener('click',()=>openBookFromShelf(course.id,card));card.append(open);
+  const actions=document.createElement('div');actions.className='spine-actions';
+  for(const [label,icon,action] of [['Edit '+course.name,'pencil',()=>openCourseModal(course.id)],['Delete '+course.name,'trash-2',()=>confirmDeleteCourse(course.id)]]) {
+    const button=document.createElement('button');button.type='button';button.className='action-icon';button.setAttribute('aria-label',label);button.title=label;button.innerHTML=`<i data-lucide="${icon}"></i>`;button.addEventListener('click',event=>{event.stopPropagation();action();});actions.append(button);
   }
-  card.appendChild(codeRow);
-  
-  const name = document.createElement('button');
-  name.type = 'button';
-  name.className = 'course-name';
-  name.setAttribute('aria-label', `Open ${course.name}`);
-  name.innerText = course.name;
-  name.title = course.name;
-  card.appendChild(name);
-  
-  // Metadata row
-  const meta = document.createElement('div');
-  meta.className = 'course-meta';
-  
-  const grade = document.createElement('span');
-  grade.className = 'course-recorded-grade';
-  grade.textContent = course.isPlaceholder ? 'Elective placeholder · planned' : courseGrade(course) ? `Grade: ${courseGrade(course)}` : 'Grade pending';
+  card.append(actions);return card;
+}
 
-  // Count of materials uploaded for this course
-  const files = await getFilesByCourse(course.id);
-  const countBadge = document.createElement('span');
-  countBadge.className = 'course-materials-count';
-  countBadge.innerHTML = `<i data-lucide="file"></i> ${files.length}`;
-  
-  meta.appendChild(grade);
-  meta.appendChild(countBadge);
-  card.appendChild(meta);
-  
-  // Small icons row for edit and delete
-  const actions = document.createElement('div');
-  actions.className = 'course-actions';
-  
-  const editBtn = document.createElement('button');
-  editBtn.className = 'action-icon';
-  editBtn.title = course.isPlaceholder ? 'Edit elective placeholder' : 'Edit Course Details';
-  editBtn.innerHTML = `<i data-lucide="edit-3"></i>`;
-  editBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    openCourseModal(course.id);
-  });
-  
-  const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'action-icon delete';
-  deleteBtn.title = 'Delete Course';
-  deleteBtn.innerHTML = `<i data-lucide="trash-2"></i>`;
-  deleteBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    confirmDeleteCourse(course.id);
-  });
-  
-  const openLabel = document.createElement('span');
-  openLabel.className = 'course-open-label';
-  openLabel.innerHTML = 'Open book <i data-lucide="arrow-up-right"></i>';
-  actions.appendChild(openLabel);
-  actions.appendChild(editBtn);
-  actions.appendChild(deleteBtn);
-  card.appendChild(actions);
-  
-  // Card click triggers detailed workspace page
-  card.addEventListener('click', (e) => {
-    // Only open if they didn't click buttons
-    if (e.target.closest('.action-icon')) return;
-    openCourseDetail(course.id);
-  });
-  
-  return card;
+async function openBookFromShelf(id,spine) {
+  if(bookInFlight)return;const course=state.courses.find(c=>c.id===id);if(!course)return;bookInFlight=true;
+  const revision=navigationRevision;
+  try {await bookReader?.flyFrom(spine,course);if(revision!==navigationRevision || activeTab!=='dashboard')return;await openCourseDetail(id);}
+  finally {bookInFlight=false;}
 }
 
 async function renderMetrics() {
@@ -602,15 +518,17 @@ async function openCourseDetail(courseId) {
   const course = state.courses.find(c => c.id === courseId);
   if (!course) return;
   
+  persistPendingNotes();
   activeCourseId = courseId;
+  if(document.getElementById('room-stage').dataset.view!=='shelf')setStudyView('shelf',false);
   
   // Set course metadata
   document.getElementById('detail-course-name').innerText = course.name;
   
   const badge = document.getElementById('detail-course-code-badge');
   badge.innerText = course.code || 'N/A';
-  badge.style.backgroundColor = `rgba(${hexToRgb(ACCENT_COLORS[course.themeColor])}, 0.15)`;
-  badge.style.color = ACCENT_COLORS[course.themeColor];
+  badge.style.backgroundColor = `rgba(${hexToRgb(COURSE_BROWNS[courseCategory(course)])}, 0.15)`;
+  badge.style.color = COURSE_BROWNS[courseCategory(course)];
   
   document.getElementById('detail-course-credits').textContent = `${Number(course.credits) || 0} ${course.isPlaceholder || !courseGrade(course) ? 'planned credits' : 'credits'}`;
   document.getElementById('detail-course-grade').textContent = course.isPlaceholder ? `${course.electiveType} elective · course not chosen yet` : `Grade: ${courseGrade(course) || 'Pending'}`;
@@ -626,6 +544,7 @@ async function openCourseDetail(courseId) {
   
   // Switch view panel
   handleNavigation('course-detail');
+  bookReader?.open(course);
 }
 
 async function renderCourseDetailFiles() {
@@ -696,7 +615,7 @@ async function renderCourseDetailFiles() {
     viewBtn.className = 'action-icon';
     viewBtn.title = 'Preview File';
     viewBtn.innerHTML = `<i data-lucide="eye"></i>`;
-    viewBtn.addEventListener('click', () => openPreviewModal(f));
+    viewBtn.addEventListener('click', () => bookReader ? bookReader.preview(f) : openPreviewModal(f));
     
     const downloadBtn = document.createElement('button');
     downloadBtn.className = 'action-icon';
@@ -1128,6 +1047,7 @@ function openCourseModal(courseId = null, chooseElective = false) {
     document.getElementById('course-code-input').value = course.isPlaceholder ? '' : course.code;
     document.getElementById('course-type-select').value = course.isPlaceholder && !chooseElective ? 'placeholder' : 'course';
     document.getElementById('course-elective-type').value = course.electiveType || 'DEL';
+    document.getElementById('course-category-select').value=courseCategory(course);
     document.querySelector('#course-type-select [value="placeholder"]').disabled = !!courseGrade(course);
     document.getElementById('course-sem-select').value = course.semesterId;
     document.getElementById('course-credits-input').value = course.credits ?? '';
@@ -1139,6 +1059,7 @@ function openCourseModal(courseId = null, chooseElective = false) {
     document.getElementById('course-edit-id').value = '';
     document.getElementById('course-type-select').value = 'course';
     document.getElementById('course-elective-type').value = 'DEL';
+    document.getElementById('course-category-select').value='CDC';
     document.querySelector('#course-type-select [value="placeholder"]').disabled = false;
     document.getElementById('course-name-input').value = '';
     document.getElementById('course-code-input').value = '';
@@ -1155,6 +1076,8 @@ function openCourseModal(courseId = null, chooseElective = false) {
 function updateCourseFormMode() {
   const placeholder=document.getElementById('course-type-select').value==='placeholder';
   document.getElementById('course-placeholder-fields').hidden=!placeholder;
+  document.getElementById('course-category-field').hidden=placeholder;
+  if(placeholder)document.getElementById('course-category-select').value=document.getElementById('course-elective-type').value;
   for (const field of ['name','code']) {
     document.getElementById(`course-${field}-field`).hidden=placeholder;
     const input=document.getElementById(`course-${field}-input`);input.required=!placeholder;input.disabled=placeholder;
@@ -1226,6 +1149,7 @@ async function handleAddCourse(e) {
     persistPendingNotes();
     const record=buildCourseRecord({
       mode:document.getElementById('course-type-select').value,
+      category:document.getElementById('course-category-select').value,
       electiveType:document.getElementById('course-elective-type').value,
       name:document.getElementById('course-name-input').value,
       code:document.getElementById('course-code-input').value,
@@ -1291,7 +1215,11 @@ function confirmDeleteCourse(courseId) {
 
 // Navigation switcher tabs (Sidebar links)
 function handleNavigation(tab) {
+  navigationRevision++;
+  if(activeTab==='course-detail' && tab!=='course-detail'){persistPendingNotes();bookReader?.close();}
   activeTab = tab;
+  document.body.classList.toggle('in-study-room',tab==='dashboard');
+  document.body.classList.toggle('in-course-book',tab==='course-detail');
   closeWorkspaceNavigation();
   window.scrollTo({top: 0, behavior: 'instant'});
   document.getElementById('main-content').focus({preventScroll: true});
@@ -2158,6 +2086,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   await renderBoard();
   await renderMetrics();
   initializeWorkspaceInterface();
+  initializeStudyRoom();
   updateGlobalFiltersSelect();
   
   // Navigation sidebar events
@@ -2374,6 +2303,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-cancel-course').addEventListener('click', closeCourseModal);
   document.getElementById('form-add-course').addEventListener('submit', handleAddCourse);
   document.getElementById('course-type-select').addEventListener('change', updateCourseFormMode);
+  document.getElementById('course-elective-type').addEventListener('change', updateCourseFormMode);
   document.getElementById('btn-add-elective').addEventListener('click',()=>{
     if (!state.semesters.length) {showToast('Add a semester first, then add elective placeholders.');openSemesterModal();return;}
     openCourseModal();document.getElementById('course-type-select').value='placeholder';updateCourseFormMode();
@@ -2383,7 +2313,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('midsem-reset').addEventListener('click',()=>{midsemDraft.grades={};renderMidsemEstimate();});
   
   // Detailed Course View Panel Events
-  document.getElementById('btn-back-to-dashboard').addEventListener('click', () => handleNavigation('dashboard'));
+  document.getElementById('btn-back-to-dashboard').addEventListener('click', async () => {const revision=navigationRevision;await bookReader?.closeAnimated();if(revision===navigationRevision)handleNavigation('dashboard');});
   
   // Textarea notepad event
   document.getElementById('detail-notes-textarea').addEventListener('input', handleNotesInput);
@@ -4247,6 +4177,24 @@ function closeWorkspaceNavigation() {
   if (sidebar) sidebar.inert = window.matchMedia('(max-width: 700px)').matches;
 }
 
+function setStudyView(mode,animated=true) {
+  const stage=document.getElementById('room-stage');const fromRoom=stage.dataset.view==='room';stage.dataset.view=mode;
+  if(mode==='shelf' && fromRoom)document.getElementById('shelf-workspace').scrollTo({top:0,left:0});
+  document.getElementById('shelf-workspace').hidden=mode!=='shelf';
+  document.getElementById('room-hotspots').hidden=mode!=='room';
+  document.getElementById('btn-return-room').hidden=mode!=='shelf';
+  document.getElementById('room-instruction').textContent=mode==='shelf'?'Your semesters, bound together.':'Pick a spot. Make yourself at home.';
+  studyRoom?.pose(mode,animated);
+  if(mode==='shelf')document.getElementById('course-shelf-heading').focus({preventScroll:true});
+  else document.getElementById('btn-open-bookshelf').focus({preventScroll:true});
+}
+function initializeStudyRoom() {
+  bookReader=new BookReader({getBlob:async file=>file.content || await backend.downloadFile(file),download:downloadFileRecord,onEdit:openCourseModal});
+  try {studyRoom=new StudyRoom(document.getElementById('room-canvas-wrap'),document.getElementById('room-stage'),{onShelf:()=>setStudyView('shelf')});studyRoom.update(state.semesters,state.courses);}
+  catch(error){document.getElementById('room-stage').classList.add('room-unavailable');console.warn('Room rendering is unavailable; the accessible bookshelf remains available.');}
+  document.body.classList.add('in-study-room');
+}
+
 function initializeWorkspaceInterface() {
   const date = new Date();
   const dateElement = document.getElementById('workspace-date');
@@ -4256,11 +4204,11 @@ function initializeWorkspaceInterface() {
   document.querySelectorAll('.nav-item button').forEach(button => button.title = button.textContent.trim());
   document.getElementById('dashboard-search').addEventListener('input', applyDashboardFilters);
   document.getElementById('dashboard-semester-filter').addEventListener('change', applyDashboardFilters);
-  document.getElementById('btn-overview-calendar').addEventListener('click', () => handleNavigation('calendar'));
-  document.getElementById('btn-open-bookshelf').addEventListener('click', () => {
-    const shelf = document.getElementById('course-shelf-heading');
-    shelf.scrollIntoView({behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start'});
-    shelf.focus({preventScroll:true});
+  document.getElementById('btn-open-bookshelf').addEventListener('click',()=>setStudyView('shelf'));
+  document.getElementById('btn-return-room').addEventListener('click',()=>setStudyView('room'));
+  document.getElementById('btn-room-journal').addEventListener('click',()=>{
+    const panel=document.getElementById('room-journal');panel.hidden=!panel.hidden;
+    document.getElementById('btn-room-journal').setAttribute('aria-expanded',String(!panel.hidden));
   });
   document.querySelectorAll('[data-study-view]').forEach(button => {
     button.addEventListener('click', () => handleNavigation(button.dataset.studyView));

@@ -1,0 +1,2 @@
+GSAP 3.15.1. Copyright GreenSock. License: https://gsap.com/standard-license/
+Full copyright notices are retained in study-engine.js.

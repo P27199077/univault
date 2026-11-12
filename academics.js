@@ -7,6 +7,9 @@ export const normalizeGrade = value => {
 };
 export const courseGrade = course => course.isPlaceholder ? '' : normalizeGrade(course.grade ?? course.targetGrade);
 export const ELECTIVE_TYPES = Object.freeze(['DEL','HuEL','OpEL']);
+export const COURSE_CATEGORIES = Object.freeze(['CDC','HuEL','DEL','OpEL']);
+export const COURSE_BROWNS = Object.freeze({CDC:'#583a2b',HuEL:'#b18b63',DEL:'#875b3e',OpEL:'#71503c'});
+export const courseCategory = course => COURSE_CATEGORIES.includes(course.courseCategory) ? course.courseCategory : ELECTIVE_TYPES.includes(course.electiveType) ? course.electiveType : 'CDC';
 
 export function buildCourseRecord(input, existing=null, courses=[]) {
   const isPlaceholder=input.mode==='placeholder';
@@ -26,8 +29,10 @@ export function buildCourseRecord(input, existing=null, courses=[]) {
       name=`${code} ${number}`;
     }
   } else if (!name || !code) throw new Error('Enter the selected course name and code.');
+  const category=isPlaceholder ? input.electiveType : (input.category ?? courseCategory(existing || {}));
+  if (!COURSE_CATEGORIES.includes(category)) throw new Error('Choose CDC, HuEL, DEL, or OpEL.');
   const course={notes:'',checklist:[],...existing,id:existing?.id || `course-${crypto.randomUUID()}`,name,code,semesterId:input.semesterId,credits,isPlaceholder,
-    electiveType:isPlaceholder ? input.electiveType : existing?.electiveType || null,
+    electiveType:category==='CDC' ? null : category,courseCategory:category,
     grade:isPlaceholder ? '' : courseGrade(existing || {}),themeColor:input.themeColor || 'indigo'};
   delete course.targetGrade;
   return course;

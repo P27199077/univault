@@ -1,0 +1,258 @@
+/* The room is the home screen. Its working objects have ordinary keyboard controls. */
+.in-study-room .main-content {padding: 0 20px 20px;}
+.in-study-room .workspace-topbar {margin-bottom: 15px;min-height: 64px;}
+.in-study-room .main-content > header {position: absolute;top: 105px;right: 43px;z-index: 5;margin: 0;}
+.in-study-room .welcome {display: none;}
+.in-study-room .view-panel {padding-bottom: 0;}
+.room-stage {height: calc(100dvh - 100px);min-height: 610px;max-height: 1000px;position: relative;border: 1px solid #c9b18e;border-radius: 12px;overflow: hidden;background: #e4d3b7;box-shadow: 0 7px 22px #60432812;isolation: isolate;}
+.room-canvas-wrap {position: absolute;inset: 0;z-index: 0;}
+.room-canvas-wrap canvas {width: 100%;height: 100%;display: block;}
+.room-title {position: absolute;left: 30px;top: 25px;z-index: 2;pointer-events: none;}
+.room-title .eyebrow {font-size: 8px;color: #916a43;}
+.room-title h2 {font: 400 33px/1.2 var(--font-display);letter-spacing: -1px;color: #5b402b;}
+.room-title p {font-size: 11px;color: #8b7255;margin-top: 9px;}
+.room-object {position: absolute;display: flex;align-items: center;gap: 9px;background: #fff6e3eb;backdrop-filter: blur(6px);color: #6d4e30;border: 1px solid #c4a375;box-shadow: 0 4px 18px #3c291b20;padding: 10px 13px;border-radius: 7px;cursor: pointer;text-align: left;transition: transform .2s ease,box-shadow .2s ease;z-index: 3;}
+.room-object:hover {transform: translateY(-4px);box-shadow: 0 6px 20px #3c291b35;background: #fff8e9;}
+.room-object > svg {width: 20px;height: 20px;stroke-width: 1.4;flex-shrink: 0;}
+.room-object strong {display: block;font: 500 13px var(--font-display);}
+.room-object small {display: block;font-size: 9px;margin-top: 4px;opacity: .8;}
+.room-object > svg:last-child:not(:first-child) {width: 14px;}
+.room-object-shelf {top: 31%;right: 11%;}
+.room-object-planner {top: 35%;left: 25%;}
+.room-object-notepad {top: 69%;left: 23%;}
+.room-object-journal {top: 72%;right: 10%;}
+.room-object-shelf::after {content: '';position: absolute;bottom: -18px;left: 50%;height: 17px;border-left: 1px solid #9c764e;}
+.room-controls {position: absolute;bottom: 25px;left: 25px;right: 25px;z-index: 5;display: flex;align-items: center;gap: 12px;justify-content: space-between;}
+.room-journal-button {display: flex;align-items: center;gap: 7px;background: #f8eddaeb;border: 1px solid #c5aa81;border-radius: 6px;padding: 9px 12px;color: #7c5b38;font-size: 10px;cursor: pointer;margin-left: auto;}
+.room-journal-button svg {width: 16px;height: 16px;}
+.room-floor-note {position: absolute;left: 25px;bottom: 26px;font: italic 11px var(--font-display);color: #7b5d3f;display: flex;align-items: center;gap: 8px;}
+.room-floor-note span {font-style: normal;font-size: 24px;color: #a77842;}
+#room-journal {padding: 25px 5px 0;}
+#room-journal .desk-summary {margin-bottom: 0;}
+.room-stage[data-view='shelf'] .room-floor-note {display: none;}
+.room-stage[data-view='shelf'] .room-title h2 {font-size: 22px;}
+.room-stage[data-view='shelf'] .room-title .eyebrow {display: none;}
+.room-stage[data-view='shelf'] .room-title p {margin-top: 5px;}
+.room-stage[data-view='shelf'] .room-canvas-wrap {filter: blur(2px);}
+.room-unavailable .room-canvas-wrap {background: linear-gradient(180deg,#0000,#4c321c50),url('assets/cozy-study.webp') center/cover;}
+.room-unavailable .room-title {background: #f8eacfde;padding: 16px;border-radius: 8px;}
+
+/* Close-up cabinet: semester levels, tightly packed spines, and four brown bindings. */
+.shelf-workspace {position: absolute;z-index: 4;inset: 97px 25px 81px;overflow-y: auto;overscroll-behavior: contain;background: repeating-linear-gradient(91deg,#ffffff02 0 3px,transparent 4px 12px),#745037;border: 9px solid #68462d;border-bottom-width: 14px;border-radius: 8px;box-shadow: inset 0 0 0 1px #bd9362,0 16px 28px #2b1c1638;padding: 20px 19px 24px;animation: cabinet-arrive .65s cubic-bezier(.2,.6,.3,1) both;}
+@keyframes cabinet-arrive {from{opacity:0;transform:scale(.78) translateY(30px)}to{opacity:1;transform:none}}
+.shelf-workspace .board-section-heading {align-items: center;margin-bottom: 14px;}
+.shelf-workspace .board-section-heading h2 {font-size: 24px;color: #f0dfbd;}
+.shelf-workspace .board-section-heading .eyebrow {color: #d0af7b;font-size: 7px;}
+.shelf-workspace .board-section-heading > p {color: #d5bb93;font-size: 10px;}
+.shelf-workspace .result-count {background: #4e341f;color: #d6b888;}
+.shelf-workspace .board-toolbar {margin-bottom: 15px;}
+.shelf-workspace .form-control {background: #f4e5c8;border-color: #b99664;font-size: 11px;}
+.shelf-workspace .btn-secondary {background: #e7d2ac;font-size: 10px;border-color: #b79765;}
+.shelf-workspace .course-search {max-width: 350px;}
+.shelf-workspace #dashboard-semester-filter {max-width: 160px;}
+.shelf-workspace .semester-container {display: flex;flex-direction: column;gap: 18px;padding-bottom: 8px;}
+.shelf-workspace .semester-column {position: relative;padding: 13px 12px 0;background: linear-gradient(90deg,#3a271f24,#3a271f05 15%,#3a271f10 85%,#3a271f20),#87603e;border: 1px solid #4d321f;border-bottom: 0;border-radius: 2px;box-shadow: inset 0 10px 17px #31201626;}
+.shelf-workspace .semester-header {border: 0;padding: 0 2px 0;margin: 0;align-items: center;}
+.shelf-workspace .semester-title {font: 500 13px var(--font-display);color: #f1dfba;letter-spacing: .2px;}
+.shelf-workspace .semester-header .action-icon {color: #dbc090;}
+.shelf-workspace .semester-complete svg {color: #dfc99e !important;}
+.shelf-workspace .semester-stats {background: #60402a;color: #e1c89c;font-size: 8px;}
+.shelf-workspace .course-list {display: flex;flex-direction: row;flex-wrap: nowrap;align-items: end;gap: 6px;position: relative;overflow-x: auto;overflow-y: hidden;min-height: 288px;padding: 35px 12px 28px;background: none;scrollbar-color: #c8a77a #573a25;}
+.shelf-workspace .course-list::before {display: block;position: absolute;content: '';left: 0;right: 0;top: auto;bottom: 12px;height: 16px;background: linear-gradient(#bf9462 0 3px,#956a42 3px 12px,#50341f 12px 16px);box-shadow: 0 5px 0 #a87e50,0 9px 7px #2d1c1245;}
+.shelf-workspace .course-list::after {display: none;}
+.shelf-workspace .course-list:empty {min-height: 180px;padding-top: 15px;}
+.shelf-workspace .course-list:empty::after {display: flex;align-items: center;justify-content: center;height: 110px;margin: 0 0 16px;width: 100%;background: #68482f;color: #d8ba8d;border: 1px dashed #b18a58;box-shadow: none;}
+.shelf-workspace .course-card.spine-volume {display: block;flex: 0 0 64px;width: 64px;min-width: 64px;max-width: 64px;height: 222px;min-height: 222px;padding: 0;margin: 0;border: 1px solid #41291e55;border-left: 0;border-right: 0;border-radius: 7px 7px 2px 2px;background: linear-gradient(90deg,#160d0742,transparent 12%,#ffffff0c 22%,transparent 32%,#24130c24 88%,#fff4ca16 96%,#24130c40),var(--book-color);box-shadow: 3px 0 1px #311e144a,inset 0 1px 0 #e4c69755;color: #f4dfb8;transform: none;transform-origin: center bottom;cursor: grab;overflow: visible;z-index: 1;transition: transform .22s ease,box-shadow .22s ease;}
+.shelf-workspace .spine-volume:nth-child(4n+2) {height: 231px;min-height: 231px;}
+.shelf-workspace .spine-volume:nth-child(4n+3) {height: 217px;min-height: 217px;}
+.spine-volume::before {display: none;}
+.spine-volume::after {content: '';position: absolute;left: 7px;right: 6px;top: 30px;height: calc(100% - 55px);border-top: 3px double #dcbd805c;border-bottom: 3px double #dcbd805c;pointer-events: none;}
+.spine-open {display: flex;flex-direction: column;align-items: center;justify-content: space-between;width: 100%;height: 100%;padding: 13px 7px 10px;background: none;border: 0;border-radius: inherit;color: #f8e7c6;cursor: pointer;}
+.spine-category {font-size: 8px;letter-spacing: 1px;font-weight: 600;color: #ead3aa;}
+.spine-title {display: block;writing-mode: vertical-rl;transform: rotate(180deg);text-orientation: mixed;height: 153px;max-width: 45px;overflow: hidden;font: 500 14px/1.45 var(--font-display);letter-spacing: .2px;text-align: center;color: #f7e5c1;}
+.spine-code {font-size: 7px;letter-spacing: .35px;white-space: nowrap;color: #dfc69d;}
+.spine-actions {display: flex;justify-content: center;position: absolute;top: -30px;height: 27px;left: -3px;right: -3px;background: #f0dbb5;border: 1px solid #a28152;border-radius: 4px;opacity: 0;pointer-events: none;transition: opacity .15s ease;}
+.spine-actions .action-icon {padding: 5px 8px;color: #76502e;}
+.spine-actions .action-icon svg {width: 12px;height: 12px;}
+.spine-actions .action-icon:hover {background: #d4b98c;color: #553719;}
+@media (hover:hover) and (pointer:fine) {
+  .shelf-workspace .course-card.spine-volume:hover {transform: translateY(-11px) translateZ(8px) scale(1.055);box-shadow: 6px 10px 13px #30201555;z-index: 3;}
+  .spine-volume:hover .spine-actions {opacity: 1;pointer-events: auto;}
+}
+.shelf-workspace .spine-volume:focus-within {transform: translateY(-9px) scale(1.04);z-index: 3;box-shadow: 0 0 0 2px #e3bf80,6px 10px 13px #30201555;}
+.spine-volume:focus-within .spine-actions {opacity: 1;pointer-events: auto;}
+.spine-volume .spine-open:focus-visible {outline: 2px solid #fff0c9;outline-offset: 3px;}
+.spine-volume.elective-placeholder .spine-title {font-style: italic;}
+.shelf-workspace .empty-state {background: #ead6b3;border-color: #9f7b4c;box-shadow: none;}
+.book-category-legend {display: flex;flex-wrap: wrap;gap: 8px 17px;font-size: 9px;color: #e9d4b0;margin: 10px 0 16px;}
+.book-category-legend span {display: inline-flex;align-items: center;gap: 6px;}
+.book-category-legend i {width: 9px;height: 14px;border-radius: 2px;box-shadow: inset 1px 0 #fff2c01f;border: 1px solid #d1b17c55;}
+
+/* The book leaves the shelf, then its cover opens around real, editable pages. */
+.travelling-book {position: fixed;z-index: 1700;width: 200px;height: 290px;padding: 30px 23px;border: 1px solid #3d271b;border-right: 8px solid #ecdfbd;border-radius: 4px 9px 9px 4px;box-shadow: 6px 14px 26px #29180e60;color: #f9e6bf;display: flex;flex-direction: column;gap: 45px;pointer-events: none;}
+.travelling-book small {font-size: 10px;letter-spacing: 1px;}
+.travelling-book strong {font: 400 24px/1.4 var(--font-display);}
+.in-course-book .course-detail-header {margin-bottom: 22px;padding-bottom: 18px;}
+.in-course-book .course-detail-header > .btn {font-size: 10px;}
+.in-course-book .course-detail-title-row h2 {font-size: 28px;}
+.book-spread {--book-cover-color: #583a2b;display: grid;grid-template-columns: minmax(230px,.75fr) minmax(0,1.25fr);position: relative;perspective: 1800px;border: 10px solid var(--book-cover-color);border-radius: 10px 13px 13px 10px;box-shadow: 2px 3px 0 #d9c6a1,4px 6px 0 #f0dfb8,6px 8px 0 var(--book-cover-color),0 20px 40px #50331c26;margin-bottom: 32px;min-height: 590px;isolation: isolate;}
+.book-left-page {position: relative;padding: 35px 28px 48px;background: linear-gradient(90deg,#fbf0d9 88%,#d0bc953b 98%,#9e815347);min-width: 0;border-radius: 2px 0 0 2px;}
+.book-left-page::after {content: '';position: absolute;right: -1px;top: 0;bottom: 0;width: 1px;background: #aa8a5f6e;z-index: 1;}
+.book-edition {font-size: 8px;letter-spacing: 1.6px;color: #987548;}
+.book-left-page h3 {font: italic 400 40px var(--font-display);color: #6b4b2c;margin: 21px 0 14px;}
+.book-left-page > p {font-size: 11px;line-height: 1.8;color: #9b805b;}
+.book-section-tabs {display: flex;flex-direction: column;margin: 28px 0 22px;gap: 5px;}
+.book-section-tabs button {display: flex;align-items: center;gap: 12px;text-align: left;background: transparent;border: 0;border-bottom: 1px solid #e2cdab;color: #b08e5e;cursor: pointer;font-size: 9px;padding: 12px 6px;}
+.book-section-tabs button span {font-family: var(--font-display);font-size: 12px;color: #82613b;}
+.book-section-tabs button[aria-selected='true'] {background: #e8d5ae7a;border-left: 2px solid #a1713d;padding-left: 10px;color: #926638;}
+.book-section-tabs button:hover {background: #ead8b54d;}
+.book-edit-details {display: flex;align-items: center;gap: 7px;background: none;border: 0;color: #a07947;font-size: 10px;cursor: pointer;line-height: 1.5;text-align: left;padding: 6px 0;}
+.book-edit-details svg {width: 13px;height: 13px;}
+.book-right-page {position: relative;padding: 30px 30px 48px;background: linear-gradient(90deg,#bba47c33,#fbf2de 5%,#fff6e2 90%,#f3e6cc);min-width: 0;border-radius: 0 3px 3px 0;}
+.book-running-head {display: flex;justify-content: space-between;gap: 12px;border-bottom: 1px solid #d7bd93;padding-bottom: 13px;margin-bottom: 22px;font-size: 8px;letter-spacing: 1px;text-transform: uppercase;color: #b08e5f;}
+.book-page-number {position: absolute;bottom: 21px;left: 28px;right: 28px;text-align: center;font-size: 7px;letter-spacing: 1.5px;color: #b79767;}
+.book-spread .folders-column {display: block;}
+.book-spread .folder-card, .book-spread .sidebar-card {background: transparent !important;box-shadow: none;border: 0;border-radius: 0;padding: 0;min-height: 410px;}
+.book-spread .folder-header {gap: 12px;align-items: center;}
+.book-spread .folder-header h3 {font-size: 21px;}
+.book-spread .folder-icon {width: 25px;height: 25px;padding: 0;background: none;}
+.book-spread .folder-dropzone {margin: 20px 0;background: #eddfbf7a;border-color: #c3a36f;min-height: 92px;}
+.book-spread .folder-file-list {max-height: none;}
+.book-spread .material-item {background: #f0e1c2a1;padding: 12px 8px;border-color: #d9c29c;}
+.book-spread .material-title {font-size: 11px;white-space: normal;overflow-wrap: anywhere;}
+.book-spread .material-meta {font-size: 9px;}
+.book-spread .material-type-icon {width: 27px;height: 30px;}
+.book-spread .material-type-icon svg {width: 17px;height: 17px;}
+.book-spread .material-actions {gap: 0;}
+.book-spread .material-actions .action-icon {padding: 6px;}
+.book-spread .material-actions svg {width: 13px;height: 13px;}
+.book-spread .sidebar-card-header h3 {font-size: 23px;}
+.book-spread .notes-textarea {min-height: 360px;}
+.book-spread .notepad-card {min-height: 430px;}
+.book-file-preview h3 {font: 400 17px/1.5 var(--font-display);overflow-wrap: anywhere;margin: 15px 0;}
+.book-preview-back {display: flex;align-items: center;gap: 7px;background: none;border: 0;color: #927043;font-size: 10px;cursor: pointer;}
+.book-preview-back svg {width: 13px;height: 13px;}
+#book-preview-body {min-height: 340px;color: #88704b;font-size: 12px;overflow-wrap: anywhere;}
+#book-preview-body iframe {display: block;border: 1px solid #d6bf94;width: 100%;height: 460px;background: #e2d4bb;}
+#book-preview-body img, #book-preview-body video {display: block;max-width: 100%;max-height: 460px;margin: auto;}
+#book-preview-body audio {width: 100%;}
+#book-preview-body pre {white-space: pre-wrap;overflow-wrap: anywhere;font: 12px/1.9 var(--font-main);color: #735432;background: #eadbbe66;padding: 20px;min-height: 340px;}
+#book-download-file {margin-top: 15px;}
+.book-opening-cover {display: none;position: absolute;z-index: 10;top: -3px;bottom: -3px;left: 50%;width: calc(50% + 3px);transform-origin: left center;backface-visibility: hidden;transform-style: preserve-3d;border-radius: 0 8px 8px 0;padding: 45px 30px;background: linear-gradient(90deg,#21120844,transparent 8%,#fff5df09 15%,transparent 40%),var(--book-cover-color);border: 1px solid #31201655;box-shadow: 5px 7px 18px #39231440;color: #f7e3bd;}
+.book-opening-cover span {display: block;font-size: 11px;letter-spacing: 2px;border-bottom: 3px double #d2b27a66;padding-bottom: 20px;}
+.book-opening-cover strong {display: block;font: 400 30px/1.5 var(--font-display);margin-top: 45px;}
+.book-opening-cover small {position: absolute;bottom: 40px;font-size: 8px;letter-spacing: 1px;}
+.is-opening .book-opening-cover, .is-closing .book-opening-cover {display: block;}
+
+@media (max-width: 1100px) {
+  .room-object-shelf {right: 5%;top: 33%;}
+  .room-object-planner {left: 13%;top: 39%;}
+  .room-object-notepad {left: 13%;top: 69%;}
+  .room-object-journal {right: 5%;top: 75%;}
+  .room-object {padding: 9px 10px;}
+  .room-object strong {font-size: 11px;}
+  .room-object small {font-size: 8px;}
+  .room-title h2 {font-size: 29px;}
+  .in-study-room .main-content > header {right: 35px;}
+  .book-spread {grid-template-columns: minmax(205px,.65fr) minmax(0,1fr);}
+  .book-left-page {padding: 30px 20px 48px;}
+  .book-right-page {padding: 27px 22px 48px;}
+  .book-section-tabs button span {font-size: 11px;}
+}
+@media (max-width: 700px) {
+  .in-study-room .main-content {padding: 0 10px 16px;}
+  .in-study-room .workspace-topbar {margin: 0 7px 10px;min-height: 61px;}
+  .in-study-room .main-content > header {position: relative;top: auto;right: auto;margin: 0 8px 11px;}
+  .in-study-room .header-actions {gap: 8px;}
+  .in-study-room .header-actions .btn {font-size: 10px;min-height: 35px;padding: 7px 8px;}
+  .room-stage {height: calc(100dvh - 130px);min-height: 650px;border-radius: 8px;}
+  .room-title {left: 21px;top: 22px;}
+  .room-title h2 {font-size: 30px;}
+  .room-title p {font-size: 10px;}
+  .room-object {gap: 7px;padding: 9px;}
+  .room-object > svg {width: 17px;height: 17px;}
+  .room-object strong {font-size: 11px;}
+  .room-object-shelf {right: 13px;top: 29%;}
+  .room-object-planner {left: 13px;top: 43%;}
+  .room-object-notepad {left: 16px;top: 63%;}
+  .room-object-journal {right: 13px;top: 77%;}
+  .room-floor-note {left: 18px;bottom: 73px;max-width: 230px;font-size: 10px;}
+  .room-controls {bottom: 17px;left: 14px;right: 14px;gap: 8px;}
+  .room-controls .btn {font-size: 9px;min-height: 35px;padding: 8px;}
+  .room-journal-button {font-size: 8px;padding: 8px;}
+  .room-stage[data-view='shelf'] .room-title {top: 19px;}
+  .room-stage[data-view='shelf'] .room-title h2 {font-size: 23px;}
+  .room-stage[data-view='shelf'] .room-title p {font-size: 9px;}
+  .shelf-workspace {inset: 84px 8px 69px;padding: 16px 10px 20px;border-width: 6px;}
+  .shelf-workspace .board-section-heading h2 {font-size: 23px;}
+  .shelf-workspace .board-section-heading .eyebrow {font-size: 6px;}
+  .shelf-workspace .board-toolbar {gap: 8px;}
+  .shelf-workspace .course-search {max-width: none;}
+  .shelf-workspace .semester-column {padding: 12px 6px 0;}
+  .shelf-workspace .semester-header {gap: 4px;}
+  .shelf-workspace .semester-header > div:first-child {flex-wrap: wrap;}
+  .shelf-workspace .semester-title {font-size: 12px;}
+  .shelf-workspace .semester-stats {font-size: 7px;padding: 3px 4px;}
+  .shelf-workspace .semester-header .action-icon {padding: 4px;}
+  .shelf-workspace .course-list {gap: 5px;padding-left: 7px;padding-right: 7px;}
+  .shelf-workspace .course-card.spine-volume {flex-basis: 54px;width: 54px;min-width: 54px;max-width: 54px;}
+  .spine-title {font-size: 12px;max-width: 38px;}
+  .spine-category {font-size: 7px;}
+  .spine-code {font-size: 6px;}
+  .book-category-legend {font-size: 8px;gap: 7px 13px;}
+  .in-course-book .course-detail-header {margin-bottom: 20px;padding-bottom: 14px;}
+  .in-course-book .course-detail-title-row h2 {font-size: 25px;}
+  .course-detail-meta {font-size: 11px;}
+  .book-spread {grid-template-columns: 1fr;border-width: 7px;margin-bottom: 25px;min-height: 0;}
+  .book-left-page {padding: 20px 17px 0;background: #f9edd4;border-bottom: 1px solid #d3ba91;}
+  .book-left-page::after, .book-left-page > .book-page-number, .book-left-page > p {display: none;}
+  .book-left-page h3 {font-size: 25px;margin: 8px 0 5px;}
+  .book-edition {font-size: 7px;}
+  .book-section-tabs {display: flex;flex-direction: row;overflow-x: auto;margin: 10px -5px 6px;gap: 5px;padding: 0 5px 8px;scrollbar-width: thin;}
+  .book-section-tabs button {flex-shrink: 0;border: 1px solid #d8c39d;border-radius: 4px;padding: 9px 10px;gap: 6px;font-size: 8px;}
+  .book-section-tabs button span {font-size: 10px;}
+  .book-section-tabs button[aria-selected='true'] {padding-left: 10px;}
+  .book-edit-details {margin: 0 0 12px;font-size: 9px;}
+  .book-right-page {padding: 20px 17px 47px;background: #fdf1d9;}
+  .book-running-head {font-size: 7px;margin-bottom: 18px;}
+  .book-spread .folder-header h3 {font-size: 20px;}
+  .book-spread .folder-dropzone {min-height: 90px;margin: 18px 0;}
+  .book-spread .folder-card {min-height: 320px;}
+  .book-spread .folder-file-count {font-size: 9px;white-space: nowrap;}
+  .book-spread .material-item {gap: 6px;flex-wrap: wrap;}
+  .book-spread .material-info-container {min-width: 0;flex: 1;}
+  .book-spread .material-title {font-size: 11px;}
+  .book-spread .material-actions {margin-left: auto;}
+  .book-spread .material-actions .action-icon {padding: 9px;}
+  .book-spread .req-input-group {flex-wrap: wrap;}
+  .book-spread .req-input-group .form-control {flex: 1;min-width: 130px;}
+  .book-opening-cover {left: 0;width: 100%;padding: 30px 25px;}
+  .book-opening-cover strong {font-size: 26px;}
+  #book-preview-body iframe {height: 420px;}
+  #book-preview-body pre {padding: 12px;font-size: 12px;}
+  #room-journal {padding-left: 8px;padding-right: 8px;}
+}
+@media (prefers-reduced-motion: reduce) {
+  .shelf-workspace {animation: none;}
+  .shelf-workspace .spine-volume:hover, .shelf-workspace .spine-volume:focus-within, .room-object:hover {transform: none;}
+}
+@media print {
+  .room-stage {height: auto;max-height: none;overflow: visible;}
+  .room-canvas-wrap,.room-title,.room-hotspots,.room-controls,.room-floor-note,.book-opening-cover,.spine-actions {display: none !important;}
+  .shelf-workspace {position: static;overflow: visible;box-shadow: none;}
+  .book-spread {display: block;box-shadow: none;border: 1px solid #888;}
+  .book-left-page {display: none;}
+}
+/* A complete shelf level fits in a typical laptop viewport. */
+@media (min-width:701px) {
+  .shelf-workspace {top:80px;bottom:64px;padding:14px 17px 12px;}
+  .shelf-workspace .board-section-heading {margin-bottom:10px;}
+  .shelf-workspace .board-section-heading .eyebrow {display:none;}
+  .shelf-workspace .board-section-heading h2 {font-size:23px;}
+  .shelf-workspace .board-toolbar {margin-bottom:10px;}
+  .shelf-workspace .book-category-legend {margin:7px 0 12px;}
+}
+/* Opening covers are visual only, so they never swallow a contents-tab click. */
+.book-opening-cover {pointer-events:none;}
+.sidebar {top:0;left:0;}
+.book-page-turn-leaf {position:absolute;inset:0;z-index:8;pointer-events:none;transform-origin:left center;backface-visibility:hidden;background:linear-gradient(90deg,#d5c09b,#fff3dc 8%,#f1dfbc);box-shadow:5px 0 18px #71502c2b;border-radius:0 3px 3px 0;}

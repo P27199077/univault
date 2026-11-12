@@ -4,13 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "postinstall": "node scripts/vendor-supabase.mjs",
+    "postinstall": "node scripts/vendor-supabase.mjs && node scripts/vendor-study.mjs",
     "test": "node --test tests/*.test.js",
-    "check": "node --check script.js && node --check backend.js && node --check academics.js",
+    "check": "node --check script.js && node --check backend.js && node --check academics.js && node --check room.js && node --check book-reader.js",
     "start": "python3 -m http.server 3000 --bind 127.0.0.1"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.119.0"
+    "@supabase/supabase-js": "2.119.0",
+    "esbuild": "0.28.2",
+    "gsap": "3.15.1",
+    "three": "0.187.0"
   },
   "engines": {
     "node": ">=22"
