@@ -285,3 +285,25 @@
 .room-object-anchored {width:max-content;max-width:calc(100% - 24px);}
 .room-object-anchored strong {white-space:nowrap;}
 @media (max-width:700px) {.room-object-shelf small {display:none;}}
+
+/* Personal sections and sequential document reading. */
+.book-organizer {font-size:11px;color:#785634;margin:15px 0 24px;}
+.book-organizer summary {cursor:pointer;padding:10px 0;}
+.book-order-row,.book-document-row {display:flex;align-items:center;gap:5px;border-bottom:1px solid #dbc7a5;padding:7px 0;}
+.book-order-row>span {flex:1;min-width:0;}
+.book-order-row button,.book-document-row>button:not(.book-document-name),.book-document-controls button {background:#f1e2c6;border:1px solid #ccb38a;color:#67492c;border-radius:4px;min-width:30px;min-height:32px;cursor:pointer;}
+.book-organizer button:disabled,.book-document-row button:disabled,.book-document-controls button:disabled {opacity:.35;cursor:default;}
+#book-add-section {display:grid;gap:8px;margin-top:15px;}
+#book-new-section,.book-document-controls select {min-width:0;width:100%;padding:9px;border:1px solid #ccb38a;background:#fff7e7;color:#67492c;border-radius:4px;}
+.book-upload {position:relative;display:inline-flex;padding:10px 15px;border:1px dashed #a78050;border-radius:5px;color:#71502f;cursor:pointer;font-size:12px;margin:12px 0;}
+.book-upload input {position:absolute;inset:0;opacity:0;width:100%;cursor:pointer;}
+.book-upload:focus-within {outline:2px solid #795534;outline-offset:3px;}
+.book-document-name {flex:1;min-width:0;text-align:left;overflow-wrap:anywhere;padding:12px 5px;border:0;background:none;color:#694a2c;cursor:pointer;font:inherit;font-size:13px;}
+.book-document-name:hover {text-decoration:underline;}
+.book-document-list p,.folder-card>p,#book-file-position {font-size:11px;color:#876943;line-height:1.7;}
+.book-document-controls {display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;margin:20px 0 8px;}
+.book-document-controls button {padding:7px;font-size:11px;}
+#book-preview-title {overflow-wrap:anywhere;font-size:17px;}
+#book-preview-body iframe {height:65vh;min-height:460px;}
+.book-file-preview {min-width:0;}
+@media(max-width:700px){.book-order-row {padding:9px 0;}.book-document-controls {gap:4px;}.book-document-controls button {font-size:10px;padding:4px;}.book-document-row>button {min-height:40px!important;}#book-preview-body iframe {min-height:420px;}}

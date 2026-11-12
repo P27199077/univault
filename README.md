@@ -99,3 +99,9 @@ The home view is a stylized Three.js study, built from original geometry in `roo
 `book-reader.js` animates extraction and opening, provides keyboard-operable contents tabs, and previews PDFs, images, text, audio, and video inside the right page. Original uploads, downloads, notes and tasks use their existing persistence. Unsupported document formats remain downloadable. The sidebar stays available throughout. The close-up cabinet uses HTML controls so course names, search, and actions work with keyboard navigation and screen readers; reduced motion skips camera and cover animations. A room illustration provides fallback when WebGL is unavailable.
 
 Dependencies are pinned. `scripts/vendor-study.mjs` bundles Three.js and GSAP into `vendor/study-engine.js` for local serving, with retained license notices. Rebuild vendor files with `npm run postinstall` after updating dependencies. No 3D assets are fetched from external model hosts. Example books and testing documents are not bundled or loaded into accounts.
+
+### Subject book sections
+
+Handouts & syllabus opens the first saved document directly. Lecture slides and Tutorial slides have ordered file lists; every preview offers a document selector and Previous/Next buttons. PDFs, images, text, audio and video preview in the book; other formats can be downloaded. Use Files & uploads to return to the list and add more files. Handout uploads are additive and never replace older uploads automatically.
+
+Arrange & add pages adds custom file sections and moves any section up/down. File rows also have order controls. Custom section names, section order, and file order are stored per course in the existing workspace JSON and included in backups/cloud sync. The book_document_sections migration extends the materials category check for tutorials and page-* section IDs, retaining ownership/RLS/storage policies. No example course records or uploaded documents are preloaded.

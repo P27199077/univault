@@ -347,6 +347,7 @@
                 <button class="filter-btn" data-type="slides">
                   <i data-lucide="presentation"></i> Slide Decks
                 </button>
+                <button class="filter-btn" data-type="tutorials"><i data-lucide="presentation"></i> Tutorial Slides</button>
                 <button class="filter-btn" data-type="notes">
                   <i data-lucide="file-edit"></i> Lecture Notes
                 </button>
@@ -407,99 +408,17 @@
           <div class="book-opening-cover" aria-hidden="true"><span id="book-cover-code"></span><strong id="book-cover-title"></strong><small>THE UNIVAULT COLLECTION</small></div>
           <aside class="book-left-page">
             <span class="book-edition" id="book-edition">CDC · COURSE BOOK</span><h3>Contents</h3><p>Everything you’ve collected,<br>between these covers.</p>
-            <div class="book-section-tabs" role="tablist" aria-label="Subject book sections">
-              <button type="button" role="tab" id="book-tab-slides" data-book-section="slides" aria-controls="book-section-slides" aria-selected="true">01 <span>Slides &amp; presentations</span></button>
-              <button type="button" role="tab" id="book-tab-notes" data-book-section="notes" aria-controls="book-section-notes" aria-selected="false" tabindex="-1">02 <span>Lecture notes</span></button>
-              <button type="button" role="tab" id="book-tab-papers" data-book-section="papers" aria-controls="book-section-papers" aria-selected="false" tabindex="-1">03 <span>Papers &amp; solutions</span></button>
-              <button type="button" role="tab" id="book-tab-handouts" data-book-section="handouts" aria-controls="book-section-handouts" aria-selected="false" tabindex="-1">04 <span>Handouts &amp; syllabus</span></button>
-              <button type="button" role="tab" id="book-tab-notebook" data-book-section="notebook" aria-controls="book-section-notebook" aria-selected="false" tabindex="-1">05 <span>Your notepad</span></button>
-              <button type="button" role="tab" id="book-tab-tasks" data-book-section="tasks" aria-controls="book-section-tasks" aria-selected="false" tabindex="-1">06 <span>Checklist &amp; tasks</span></button>
-            </div>
+            <div class="book-section-tabs" role="tablist" aria-label="Subject book sections"></div>
+            <details class="book-organizer"><summary>Arrange & add pages</summary><div id="book-section-order"></div>
+              <form id="book-add-section"><label for="book-new-section">New section name</label><input id="book-new-section" maxlength="60" required placeholder="e.g. Lab work"><button class="btn btn-secondary btn-sm">Add section</button></form>
+            </details>
             <button type="button" class="book-edit-details" id="btn-book-edit"><i data-lucide="pencil"></i> Edit course &amp; category</button>
             <span class="book-page-number">CONTENTS</span>
           </aside>
           <div class="book-right-page">
             <div class="book-running-head"><span id="book-running-title">Course materials</span><span id="book-page-index">01</span></div>
             <div id="book-section-content">
-          <div class="folders-column">
-            
-            <!-- Slides Folder -->
-            <div class="folder-card book-content-panel" data-category="slides" id="book-section-slides" role="tabpanel" aria-labelledby="book-tab-slides">
-              <div class="folder-header">
-                <div class="folder-title">
-                  <i data-lucide="presentation" class="folder-icon slides"></i>
-                  <h3>Slides & Presentations</h3>
-                </div>
-                <span class="folder-file-count" id="count-slides">0 files</span>
-              </div>
-              <div class="folder-dropzone" id="dropzone-slides">
-                <i data-lucide="cloud-upload" class="upload-zone-icon"></i>
-                <span class="dropzone-txt">Drop slides here or click to upload</span>
-                <input type="file" id="input-slides" style="display:none;" multiple>
-              </div>
-              <div class="folder-file-list" id="list-slides">
-                <!-- Files render here -->
-              </div>
-            </div>
-
-            <!-- Notes Folder -->
-            <div class="folder-card book-content-panel" data-category="notes" id="book-section-notes" role="tabpanel" aria-labelledby="book-tab-notes">
-              <div class="folder-header">
-                <div class="folder-title">
-                  <i data-lucide="file-edit" class="folder-icon notes"></i>
-                  <h3>Lecture Notes</h3>
-                </div>
-                <span class="folder-file-count" id="count-notes">0 files</span>
-              </div>
-              <div class="folder-dropzone" id="dropzone-notes">
-                <i data-lucide="cloud-upload" class="upload-zone-icon"></i>
-                <span class="dropzone-txt">Drop notes here or click to upload</span>
-                <input type="file" id="input-notes" style="display:none;" multiple>
-              </div>
-              <div class="folder-file-list" id="list-notes">
-                <!-- Files render here -->
-              </div>
-            </div>
-
-            <!-- Papers & Solutions Folder -->
-            <div class="folder-card book-content-panel" data-category="papers" id="book-section-papers" role="tabpanel" aria-labelledby="book-tab-papers">
-              <div class="folder-header">
-                <div class="folder-title">
-                  <i data-lucide="scroll" class="folder-icon papers"></i>
-                  <h3>Papers & Solutions</h3>
-                </div>
-                <span class="folder-file-count" id="count-papers">0 files</span>
-              </div>
-              <div class="folder-dropzone" id="dropzone-papers">
-                <i data-lucide="cloud-upload" class="upload-zone-icon"></i>
-                <span class="dropzone-txt">Drop papers here or click to upload</span>
-                <input type="file" id="input-papers" style="display:none;" multiple>
-              </div>
-              <div class="folder-file-list" id="list-papers">
-                <!-- Files render here -->
-              </div>
-            </div>
-
-            <!-- Handouts Folder -->
-            <div class="folder-card book-content-panel" data-category="handouts" id="book-section-handouts" role="tabpanel" aria-labelledby="book-tab-handouts">
-              <div class="folder-header">
-                <div class="folder-title">
-                  <i data-lucide="info" class="folder-icon handouts"></i>
-                  <h3>Handouts & Syllabus</h3>
-                </div>
-                <span class="folder-file-count" id="count-handouts">0 files</span>
-              </div>
-              <div class="folder-dropzone" id="dropzone-handouts">
-                <i data-lucide="cloud-upload" class="upload-zone-icon"></i>
-                <span class="dropzone-txt">Drop handouts here or click to upload</span>
-                <input type="file" id="input-handouts" style="display:none;" multiple>
-              </div>
-              <div class="folder-file-list" id="list-handouts">
-                <!-- Files render here -->
-              </div>
-            </div>
-
-          </div>
+          <div class="folders-column"></div>
 
 <div class="book-content-panel" id="book-section-notebook" role="tabpanel" aria-labelledby="book-tab-notebook" hidden><div class="sidebar-card notepad-card">
               <div class="sidebar-card-header">
@@ -528,8 +447,8 @@
             </div></div>
             </div>
             <div class="book-file-preview" id="book-file-preview" hidden>
-              <button type="button" class="book-preview-back" id="book-preview-back"><i data-lucide="arrow-left"></i> Back to section</button>
-              <h3 id="book-preview-title"></h3><div id="book-preview-body" role="region" aria-label="Document preview"></div>
+              <button type="button" class="book-preview-back" id="book-preview-back"><i data-lucide="arrow-left"></i> Files & uploads</button>
+              <div class="book-document-controls"><button type="button" id="book-prev-file">← Previous</button><label for="book-file-select" class="sr-only">Choose document</label><select id="book-file-select" aria-label="Choose document"></select><button type="button" id="book-next-file">Next →</button></div><p id="book-file-position" aria-live="polite"></p><h3 id="book-preview-title"></h3><div id="book-preview-body" role="region" aria-label="Document preview"></div>
               <button type="button" class="btn btn-secondary btn-sm" id="book-download-file"><i data-lucide="download"></i> Download file</button>
             </div>
             <span class="book-page-number" id="book-page-footer">YOUR COURSE COLLECTION</span>

@@ -540,6 +540,7 @@ async function openCourseDetail(courseId) {
   
   // Render files lists and checklist items
   await renderCourseDetailFiles();
+  if (activeCourseId !== courseId) return;
   renderCourseDetailChecklist();
   
   // Switch view panel
@@ -549,107 +550,11 @@ async function openCourseDetail(courseId) {
 
 async function renderCourseDetailFiles() {
   if (!activeCourseId) return;
-  
-  const files = await getFilesByCourse(activeCourseId);
-  const categories = ['slides', 'notes', 'papers', 'handouts'];
-  
-  // Reset lists
-  categories.forEach(cat => {
-    document.getElementById(`list-${cat}`).innerHTML = '';
-    document.getElementById(`count-${cat}`).innerText = '0 files';
-  });
-  
-  // Sort files by upload date
-  files.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
-  
-  // Populate lists
-  const counts = { slides: 0, notes: 0, papers: 0, handouts: 0 };
-  
-  files.forEach(f => {
-    const cat = f.type || 'slides';
-    if (!categories.includes(cat)) return;
-    
-    counts[cat]++;
-    
-    const item = document.createElement('div');
-    item.className = 'material-item';
-    
-    // Details
-    const info = document.createElement('div');
-    info.className = 'material-info-container';
-    
-    const icon = document.createElement('div');
-    icon.className = `material-type-icon ${cat}`;
-    icon.innerHTML = `<i data-lucide="${getFileIconName(cat)}"></i>`;
-    
-    const details = document.createElement('div');
-    details.className = 'material-details';
-    
-    const title = document.createElement('div');
-    title.className = 'material-title';
-    title.innerText = f.name;
-    title.title = f.name;
-    
-    const meta = document.createElement('div');
-    meta.className = 'material-meta';
-    
-    const sizeSpan = document.createElement('span');
-    sizeSpan.innerText = formatBytes(f.size);
-    
-    const dateSpan = document.createElement('span');
-    dateSpan.innerText = new Date(f.uploadedAt).toLocaleDateString();
-    
-    meta.appendChild(sizeSpan);
-    meta.appendChild(dateSpan);
-    details.appendChild(title);
-    details.appendChild(meta);
-    info.appendChild(icon);
-    info.appendChild(details);
-    item.appendChild(info);
-    
-    // Actions
-    const actions = document.createElement('div');
-    actions.className = 'material-actions';
-    
-    const viewBtn = document.createElement('button');
-    viewBtn.className = 'action-icon';
-    viewBtn.title = 'Preview File';
-    viewBtn.innerHTML = `<i data-lucide="eye"></i>`;
-    viewBtn.addEventListener('click', () => bookReader ? bookReader.preview(f) : openPreviewModal(f));
-    
-    const downloadBtn = document.createElement('button');
-    downloadBtn.className = 'action-icon';
-    downloadBtn.title = 'Download';
-    downloadBtn.innerHTML = `<i data-lucide="download"></i>`;
-    downloadBtn.addEventListener('click', () => downloadFileRecord(f));
-    
-    const delBtn = document.createElement('button');
-    delBtn.className = 'action-icon delete';
-    delBtn.title = 'Delete';
-    delBtn.innerHTML = `<i data-lucide="trash-2"></i>`;
-    delBtn.addEventListener('click', async () => {
-      if (confirm(`Are you sure you want to delete ${f.name}?`)) {
-        await deleteFile(f.id);
-        await renderCourseDetailFiles();
-        await renderMetrics();
-      }
-    });
-    
-    actions.appendChild(viewBtn);
-    actions.appendChild(downloadBtn);
-    actions.appendChild(delBtn);
-    item.appendChild(actions);
-    
-    document.getElementById(`list-${cat}`).appendChild(item);
-  });
-  
-  // Update counts on folders
-  categories.forEach(cat => {
-    const c = counts[cat];
-    document.getElementById(`count-${cat}`).innerText = `${c} ${c === 1 ? 'file' : 'files'}`;
-  });
-  
-  lucide.createIcons();
+  const courseId = activeCourseId;
+  const files = await getFilesByCourse(courseId);
+  if (activeCourseId !== courseId) return;
+  const course = state.courses.find(c => c.id === courseId);
+  bookReader?.setFiles(course, files);
 }
 
 function renderCourseDetailChecklist() {
@@ -776,8 +681,7 @@ function handleNotesInput() {
 async function handleFileUpload(filesList, type) {
   if (!activeCourseId || filesList.length === 0) return;
   const courseId = activeCourseId;
-  const existingHandouts = type === 'handouts' ? (await getFilesByCourse(courseId)).filter(file => file.type === 'handouts') : [];
-  const filesToUpload = type === 'handouts' ? [filesList[filesList.length - 1]] : Array.from(filesList);
+  const filesToUpload = Array.from(filesList);
   let uploaded = 0;
   for (const file of filesToUpload) {
     const record = {id:`file-${crypto.randomUUID()}`,courseId,name:file.name,type,mimeType:file.type || 'application/octet-stream',size:file.size,uploadedAt:new Date().toISOString(),content:file};
@@ -785,12 +689,6 @@ async function handleFileUpload(filesList, type) {
       await storeFile(record);
       uploaded++;
     } catch (error) {showToast(`Could not upload ${file.name}: ${error.message || 'Please try again.'}`,'error');}
-  }
-  // A replacement is only removed once its new handout has safely uploaded.
-  if (uploaded && type === 'handouts') {
-    for (const file of existingHandouts) {
-      try {await deleteFile(file.id);} catch {showToast('The new handout is saved; an older copy could not be removed.','error');}
-    }
   }
   if (activeCourseId === courseId) await renderCourseDetailFiles();
   await renderMetrics();
@@ -2051,7 +1949,7 @@ function hexToRgb(hex) {
 
 function getFileIconName(type) {
   switch (type) {
-    case 'slides': return 'presentation';
+    case 'slides': case 'tutorials': return 'presentation';
     case 'notes': return 'file-edit';
     case 'papers': return 'scroll';
     case 'handouts': return 'info';
@@ -2322,42 +2220,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('detail-btn-add-req').addEventListener('click', addChecklistItem);
   document.getElementById('detail-new-req-input').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') addChecklistItem();
-  });
-  
-  // Category folders event bindings (drag-and-drop upload click)
-  const categories = ['slides', 'notes', 'papers', 'handouts'];
-  categories.forEach(cat => {
-    const dropzone = document.getElementById(`dropzone-${cat}`);
-    const input = document.getElementById(`input-${cat}`);
-    if (!dropzone || !input) return;
-    
-    dropzone.addEventListener('click', () => input.click());
-    
-    input.addEventListener('change', (e) => {
-      handleFileUpload(e.target.files, cat);
-    });
-    
-    dropzone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropzone.classList.add('dragover');
-    });
-    
-    dropzone.addEventListener('dragenter', (e) => {
-      e.preventDefault();
-      dropzone.classList.add('dragover');
-    });
-    
-    dropzone.addEventListener('dragleave', () => {
-      dropzone.classList.remove('dragover');
-    });
-    
-    dropzone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropzone.classList.remove('dragover');
-      if (e.dataTransfer.files.length > 0) {
-        handleFileUpload(e.dataTransfer.files, cat);
-      }
-    });
   });
   
   // Preview Modal events
@@ -4191,7 +4053,11 @@ function setStudyView(mode,animated=true) {
   else document.getElementById('btn-open-bookshelf').focus({preventScroll:true});
 }
 function initializeStudyRoom() {
-  bookReader=new BookReader({getBlob:async file=>file.content || await backend.downloadFile(file),download:downloadFileRecord,onEdit:openCourseModal});
+  bookReader=new BookReader({getBlob:async file=>file.content || await backend.downloadFile(file),download:downloadFileRecord,onEdit:openCourseModal,
+    onChange: course => {persistPendingNotes();saveStateToStorage();},
+    onUpload:handleFileUpload,
+    onDelete:async file => {if(confirm(`Delete ${file.name}?`)){await deleteFile(file.id);await renderCourseDetailFiles();await renderMetrics();}}
+  });
   try {studyRoom=new StudyRoom(document.getElementById('room-canvas-wrap'),document.getElementById('room-stage'),{onShelf:()=>setStudyView('shelf'),onNavigate:handleNavigation});studyRoom.update(state.semesters,state.courses);}
   catch(error){document.getElementById('room-stage').classList.add('room-unavailable');console.warn('Room rendering is unavailable; the accessible bookshelf remains available.');}
   document.body.classList.add('in-study-room');
