@@ -39,6 +39,16 @@ The production website is `https://univault-eight.vercel.app/`; the Google Cloud
 
 If Google's provider is disabled, the app keeps the user on the sign-in page and offers email login. Network errors also allow retrying without losing local content. Google sign-in cannot complete until the external provider configuration above is finished. See [Supabase's Google sign-in guide](https://supabase.com/docs/guides/auth/social-sign-in/auth-google).
 
+## Performance sheets and grades
+
+Open **Grades & CGPA → Upload performance sheet**, select an original BITS performance PDF, review the extracted table, then choose **Save academic records**. The import reads the document in your browser and saves course codes, names, exact credits, and recorded grades through your existing workspace persistence. It does not upload or retain the original PDF or student identity fields. Nothing is preloaded, and failed parsing never falls back to sample records.
+
+- The preview defaults to courses with recorded grades. **Also add ungraded / future courses** is optional; those courses do not affect GPA until they receive a letter grade.
+- A single upload is enough to retain your past semesters. Uploading a newer sheet merges courses by semester and course code, updates recorded grades and credits, and keeps existing IDs, notes, tasks, files, and unrelated courses. Re-uploading the same sheet does not create duplicates.
+- The grade view shows each semester's SGPA and the cumulative CGPA, using credit-weighted grade points: A=10, A−=9, B=8, B−=7, C=6, C−=5, D=4, E=2. Pending courses and special reports such as SA/NC/RRA do not enter GPA credits. Course credits and course counts include all saved courses and are displayed separately from GPA credits.
+- Recorded grades can be corrected in **Grades & CGPA**. Professor and target-grade fields are removed from course cards and forms. Older saved grade fields remain readable for compatibility.
+- The parser uses PDF text coordinates to handle side-by-side semester tables and repeated headings. It accepts selectable-text PDFs up to 10 MB and 30 pages; scanned image-only sheets require OCR and are not supported. A mismatch between the sheet's printed CGPA and the calculated result is highlighted for review. Repeated-course replacement rules are not inferred; check those records before saving.
+
 ## Existing data
 
 On the same browser and website address where earlier data was saved, sign into an empty cloud account, open **Settings & backup**, then choose **Import this browser’s workspace**. This imports courses, notes, tasks, calendar events and notes, grades, timetable settings and exam dates, saved links, and IndexedDB files. Original local data is kept. Failed file uploads can be retried.
@@ -66,4 +76,4 @@ npm run check
 npm test
 ```
 
-Unit tests cover account isolation, interrupted saves, simultaneous-device conflicts, email confirmation, logout, private file paths, and migration retries. `scripts/check-live-backend.mjs` is an optional live integration check requiring two disposable, confirmed test accounts supplied in a JSON file through `UNIVAULT_TEST_FIXTURES`. It never creates or emails real users. It intentionally writes test workspaces and a temporary file, so use disposable accounts only and remove them afterwards.
+Unit tests cover account isolation, interrupted saves, simultaneous-device conflicts, email confirmation, logout, private file paths, and migration retries. Academic tests use invented records to cover column parsing, exact grades and credits, weighted GPA, non-letter reports, safe merging, and repeat uploads; no personal transcript fixture is included. `scripts/check-live-backend.mjs` is an optional live integration check requiring two disposable, confirmed test accounts supplied in a JSON file through `UNIVAULT_TEST_FIXTURES`. It never creates or emails real users. It intentionally writes test workspaces and a temporary file, so use disposable accounts only and remove them afterwards.

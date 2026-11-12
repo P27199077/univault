@@ -153,7 +153,7 @@
           <li class="nav-item" id="nav-cgpa-li">
             <button id="nav-cgpa">
               <i data-lucide="calculator"></i>
-              <span>Grade calculator</span>
+              <span>Grades &amp; CGPA</span>
             </button>
           </li>
           <li class="nav-item" id="nav-timetable-li">
@@ -269,7 +269,7 @@
 
         <div class="board-section-heading"><div><p class="eyebrow">YOUR LEARNING SPACE</p><h2>Courses & semesters <span id="board-result-count" class="result-count"></span></h2></div><p>Open a course to find notes, files & tasks.</p></div>
         <div class="board-toolbar">
-          <div class="search-input-wrapper course-search"><i data-lucide="search" class="search-icon"></i><input class="form-control" id="dashboard-search" type="search" aria-label="Search courses" placeholder="Find a course, code, or professor…"></div>
+          <div class="search-input-wrapper course-search"><i data-lucide="search" class="search-icon"></i><input class="form-control" id="dashboard-search" type="search" aria-label="Search courses" placeholder="Find a course or code…"></div>
           <select class="form-control" id="dashboard-semester-filter" aria-label="Filter by semester"><option value="all">All semesters</option></select>
           <details class="dashboard-tools"><summary class="btn btn-secondary"><i data-lucide="sliders-horizontal"></i> Manage <i data-lucide="chevron-down"></i></summary><div class="dashboard-tools-menu">          <button class="btn btn-secondary" id="btn-import-performance" style="display: flex; align-items: center; gap: 0.5rem;">
             <i data-lucide="upload-cloud"></i> Import performance PDF
@@ -353,8 +353,8 @@
             <span class="course-code-badge" id="detail-course-code-badge">CS-101</span>
           </div>
           <div class="course-detail-meta">
-            <span id="detail-course-prof"><i data-lucide="user"></i> Professor</span>
-            <span id="detail-course-grade"><i data-lucide="award"></i> Target: A+</span>
+            <span id="detail-course-credits">Credits</span>
+            <span id="detail-course-grade"><i data-lucide="award"></i> Grade: Pending</span>
           </div>
         </div>
 
@@ -679,10 +679,15 @@
 
       <!-- CGPA Calculator View Panel -->
       <section class="view-panel" id="view-cgpa">
+        <div class="performance-upload-card">
+          <div><h2>Bring your past semesters with you</h2><p>Upload a BITS performance PDF once to save courses, credits, and grades. Upload an updated sheet later to update the same records.</p><small>The PDF is read in your browser. Your records are saved only after you review and confirm.</small></div>
+          <button class="btn btn-primary" id="btn-import-grades"><i data-lucide="upload"></i> Upload performance sheet</button>
+        </div>
+        <p id="performance-import-status" class="academic-caption" role="status" aria-live="polite"></p>
         <div class="view-header" style="margin-bottom: 2rem;">
           <div>
-            <h1 class="section-duplicate-title">CGPA Calculator</h1>
-            <p class="section-duplicate-subtitle">Track, predict, and project your academic performance across semesters.</p>
+            <h1 class="section-duplicate-title">Grades &amp; CGPA</h1>
+            <p class="section-duplicate-subtitle">Actual grades from your performance sheet, saved semester by semester.</p>
           </div>
         </div>
 
@@ -690,14 +695,16 @@
         <div class="metric-card purple" style="display: flex; flex-direction: column; gap: 1rem; align-items: center; justify-content: center; padding: 2rem; margin-bottom: 2rem; border-radius: 16px; background: var(--bg-card); text-align: center; border: 1px solid var(--border-color); backdrop-filter: blur(8px);">
           <div style="font-size: 1.2rem; opacity: 0.8; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">Cumulative CGPA</div>
           <div id="overall-cgpa-display" style="font-size: 4rem; font-weight: 800; background: linear-gradient(135deg, #176052 0%, #398473 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 2px 8px rgba(221, 140, 150, 0.3));">0.00</div>
-          <div style="display: flex; gap: 2rem; margin-top: 0.5rem; font-size: 0.95rem; color: var(--text-secondary);">
-            <div>Total Credits: <span id="overall-credits-display" style="color: var(--text-primary); font-weight: 600;">0.0</span></div>
-            <div>Calculated Courses: <span id="overall-courses-display" style="color: var(--text-primary); font-weight: 600;">0</span></div>
+          <div class="academic-overall-totals">
+            <div>Course credits: <span id="overall-credits-display" style="color: var(--text-primary); font-weight: 600;">0.0</span></div>
+            <div>Courses: <span id="overall-courses-display" style="color: var(--text-primary); font-weight: 600;">0</span></div>
+            <div>GPA credits: <span id="overall-gpa-credits-display">0.0</span></div>
           </div>
         </div>
 
+        <p class="academic-grading-note">CGPA is weighted by credits, not the average of semester SGPAs. A = 10 · A− = 9 · B = 8 · B− = 7 · C = 6 · C− = 5 · D = 4 · E = 2. Pending courses and non-letter reports such as SA, NC, and RRA are excluded from GPA credits.</p>
         <!-- Semesters CGPA Container -->
-        <div id="cgpa-semesters-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1.5rem; padding-bottom: 3rem;">
+        <div id="cgpa-semesters-container" class="academic-semesters">
           <!-- Dynamically generated semester cards -->
         </div>
       </section>
@@ -1024,22 +1031,14 @@
             <input type="text" class="form-control" id="course-code-input" placeholder="e.g., CS-101" required>
           </div>
           <div class="form-group">
-            <label class="form-label" for="course-prof-input">Professor Name</label>
-            <input type="text" class="form-control" id="course-prof-input" placeholder="e.g., Dr. Alan Turing">
-          </div>
-          <div class="form-group">
             <label class="form-label" for="course-sem-select">Semester</label>
             <select class="form-control" id="course-sem-select" required>
               <!-- Dynamically populated options -->
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label" for="course-grade-input">Target Grade</label>
-            <input type="text" class="form-control" id="course-grade-input" placeholder="e.g., A+, 4.0">
-          </div>
-          <div class="form-group">
             <label class="form-label" for="course-credits-input">Credits / Units</label>
-            <input type="number" step="0.5" min="0" class="form-control" id="course-credits-input" placeholder="e.g., 3.0, 4.0" value="3.0">
+            <input type="number" step="0.5" min="0" class="form-control" id="course-credits-input" placeholder="e.g., 3.0, 4.0" max="50" required>
           </div>
           <div class="form-group">
             <label class="form-label">Theme Accent Color</label>
@@ -1054,6 +1053,21 @@
           <button type="submit" class="btn btn-primary" id="btn-save-course-submit">Create Course</button>
         </div>
       </form>
+    </div>
+  </div>
+
+
+  <div class="modal-backdrop" id="modal-performance-backdrop">
+    <div class="modal performance-preview-modal" role="dialog" aria-modal="true" aria-labelledby="performance-preview-title" aria-describedby="performance-preview-changes">
+      <div class="modal-header"><h2 class="modal-title" id="performance-preview-title" tabindex="-1">Review your performance sheet</h2><button type="button" class="modal-close" id="performance-preview-close" aria-label="Close import preview"><i data-lucide="x"></i></button></div>
+      <div class="modal-body">
+        <p id="performance-preview-summary" class="performance-preview-summary"></p>
+        <p id="performance-preview-changes" class="academic-caption"></p>
+        <label class="performance-pending-option"><input type="checkbox" id="performance-include-pending"> Also add ungraded / future courses listed on the sheet</label>
+        <p class="setup-notice" id="performance-preview-warning" hidden></p>
+        <div id="performance-preview-records"></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" id="performance-preview-cancel">Cancel</button><button type="button" class="btn btn-primary" id="performance-preview-confirm">Save academic records</button></div>
     </div>
   </div>
 

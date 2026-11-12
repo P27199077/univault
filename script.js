@@ -1,3 +1,4 @@
+import {GRADE_OPTIONS, courseGrade, normalizeGrade, academicTotals, parsePerformancePages, mergePerformanceSheet} from './academics.js';
 import {createBackend, WORKSPACE_KEYS, validateSnapshot} from './backend.js';
 
 const config = window.UNIVAULT_CONFIG || {};
@@ -206,11 +207,13 @@ async function renderBoard() {
   syncDashboardSemesterFilter();
   
   if (state.semesters.length === 0) {
+    document.getElementById('board-result-count').textContent = '0';
+    document.getElementById('dashboard-search-status').textContent = '0 courses found';
     container.innerHTML = `
       <div class="empty-state" style="width: 100%;">
         <div class="empty-state-icon"><i data-lucide="calendar"></i></div>
         <div class="empty-state-title">No Semesters Configured</div>
-        <div class="empty-state-desc">Get started by creating a new semester where you can organize your courses.</div>
+        <div class="empty-state-desc">Upload a performance sheet from Grades & CGPA, or create a semester to add courses yourself.</div>
         <button class="btn btn-primary btn-sm" id="btn-empty-add-sem">Create Semester</button>
       </div>
     `;
@@ -262,7 +265,7 @@ async function renderBoard() {
     }
     
     checkBtn.addEventListener('click', () => {
-      const hasPending = semCourses.some(c => !c.targetGrade || c.targetGrade.toUpperCase() === 'PENDING' || c.targetGrade.toUpperCase() === 'ONGOING');
+      const hasPending = semCourses.some(c => !courseGrade(c));
       
       if (!sem.completed) {
         if (semCourses.length === 0) {
@@ -458,17 +461,17 @@ async function buildCourseCard(course) {
   const meta = document.createElement('div');
   meta.className = 'course-meta';
   
-  const prof = document.createElement('span');
-  prof.className = 'course-professor';
-  prof.innerHTML = `<i data-lucide="user"></i> ${escapeHtml(course.prof || 'Unknown Professor')}`;
-  
+  const grade = document.createElement('span');
+  grade.className = 'course-recorded-grade';
+  grade.textContent = courseGrade(course) ? `Grade: ${courseGrade(course)}` : 'Grade pending';
+
   // Count of materials uploaded for this course
   const files = await getFilesByCourse(course.id);
   const countBadge = document.createElement('span');
   countBadge.className = 'course-materials-count';
   countBadge.innerHTML = `<i data-lucide="file"></i> ${files.length}`;
   
-  meta.appendChild(prof);
+  meta.appendChild(grade);
   meta.appendChild(countBadge);
   card.appendChild(meta);
   
@@ -604,8 +607,8 @@ async function openCourseDetail(courseId) {
   badge.style.backgroundColor = `rgba(${hexToRgb(ACCENT_COLORS[course.themeColor])}, 0.15)`;
   badge.style.color = ACCENT_COLORS[course.themeColor];
   
-  document.getElementById('detail-course-prof').innerHTML = `<i data-lucide="user"></i> ${escapeHtml(course.prof || 'Unknown Professor')}`;
-  document.getElementById('detail-course-grade').innerHTML = `<i data-lucide="award"></i> Target Grade: ${escapeHtml(course.targetGrade || 'N/A')}`;
+  document.getElementById('detail-course-credits').textContent = `${Number(course.credits) || 0} credits`;
+  document.getElementById('detail-course-grade').innerHTML = `<i data-lucide="award"></i> Grade: ${escapeHtml(courseGrade(course) || 'Pending')}`;
   
   // Notepad contents
   document.getElementById('detail-notes-textarea').value = course.notes || '';
@@ -1117,10 +1120,8 @@ function openCourseModal(courseId = null) {
     document.getElementById('course-edit-id').value = course.id;
     document.getElementById('course-name-input').value = course.name;
     document.getElementById('course-code-input').value = course.code;
-    document.getElementById('course-prof-input').value = course.prof || '';
     document.getElementById('course-sem-select').value = course.semesterId;
-    document.getElementById('course-grade-input').value = course.targetGrade || '';
-    document.getElementById('course-credits-input').value = course.credits || '3.0';
+    document.getElementById('course-credits-input').value = course.credits ?? '';
     activeThemeColor = course.themeColor || 'indigo';
   } else {
     // New Course Mode
@@ -1129,9 +1130,7 @@ function openCourseModal(courseId = null) {
     document.getElementById('course-edit-id').value = '';
     document.getElementById('course-name-input').value = '';
     document.getElementById('course-code-input').value = '';
-    document.getElementById('course-prof-input').value = '';
-    document.getElementById('course-grade-input').value = '';
-    document.getElementById('course-credits-input').value = '3.0';
+    document.getElementById('course-credits-input').value = '';
     activeThemeColor = 'indigo';
   }
   
@@ -1194,12 +1193,10 @@ function handleAddCourse(e) {
   const editId = document.getElementById('course-edit-id').value;
   const name = document.getElementById('course-name-input').value.trim();
   const code = document.getElementById('course-code-input').value.trim();
-  const prof = document.getElementById('course-prof-input').value.trim();
   const semesterId = document.getElementById('course-sem-select').value;
-  const grade = document.getElementById('course-grade-input').value.trim();
-  const credits = document.getElementById('course-credits-input').value.trim() || '3.0';
+  const credits = Number(document.getElementById('course-credits-input').value);
   
-  if (!name || !code || !semesterId) return;
+  if (!name || !code || !semesterId || !Number.isFinite(credits) || credits < 0) return;
   
   if (editId) {
     // Modify course
@@ -1207,9 +1204,7 @@ function handleAddCourse(e) {
     if (course) {
       course.name = name;
       course.code = code;
-      course.prof = prof;
       course.semesterId = semesterId;
-      course.targetGrade = grade;
       course.credits = credits;
       course.themeColor = activeThemeColor;
     }
@@ -1219,9 +1214,7 @@ function handleAddCourse(e) {
       id: `course-${Date.now()}`,
       name: name,
       code: code,
-      prof: prof,
       semesterId: semesterId,
-      targetGrade: grade,
       credits: credits,
       themeColor: activeThemeColor,
       notes: '',
@@ -1285,7 +1278,7 @@ function handleNavigation(tab) {
   closeWorkspaceNavigation();
   window.scrollTo({top: 0, behavior: 'instant'});
   document.getElementById('main-content').focus({preventScroll: true});
-  document.getElementById('current-location').textContent = ({dashboard:'Overview', materials:'My materials', calendar:'Calendar', todo:'Today’s tasks', attendance:'Attendance', cgpa:'Grade calculator', timetable:'Timetable', resources:'Useful links', settings:'Settings & backup', 'course-detail':'Course workspace'})[tab] || 'Overview';
+  document.getElementById('current-location').textContent = ({dashboard:'Overview', materials:'My materials', calendar:'Calendar', todo:'Today’s tasks', attendance:'Attendance', cgpa:'Grades & CGPA', timetable:'Timetable', resources:'Useful links', settings:'Settings & backup', 'course-detail':'Course workspace'})[tab] || 'Overview';
   document.getElementById('page-eyebrow').hidden = tab !== 'dashboard';
   document.querySelectorAll('.nav-item button').forEach(button => {
     if (button.id === `nav-${tab}` || (tab === 'course-detail' && button.id === 'nav-dashboard')) button.setAttribute('aria-current', 'page');
@@ -1353,8 +1346,8 @@ function handleNavigation(tab) {
     addCourseBtn.style.display = 'none';
     if (importBtn) importBtn.style.display = 'none';
   } else if (tab === 'cgpa') {
-    pageTitle.innerText = "Grade calculator";
-    pageSubtitle.innerText = 'Track, predict, and project your academic performance across semesters.';
+    pageTitle.innerText = 'Grades & CGPA';
+    pageSubtitle.innerText = 'Your recorded grades, semester SGPA, and cumulative CGPA.';
     addSemBtn.style.display = 'none';
     addCourseBtn.style.display = 'none';
     if (importBtn) importBtn.style.display = 'none';
@@ -2675,86 +2668,43 @@ window.addEventListener('DOMContentLoaded', async () => {
     finally {setAuthBusy(false);}
   });
 
-  // Import BITS sheet pdf triggers
-  const btnImport = document.getElementById('btn-import-performance');
   const fileInput = document.getElementById('performance-sheet-file-input');
-  
-  if (btnImport && fileInput) {
-    btnImport.addEventListener('click', () => {
-      fileInput.click();
-    });
-    
-    fileInput.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      
-      const originalText = btnImport.innerHTML;
-      btnImport.disabled = true;
-      btnImport.innerHTML = `⏳ Reading PDF...`;
-      
-      try {
-        const importedSems = await parsePerformanceSheet(file);
-        
-        // Add semesters and courses to state (clear old ones first)
-        state.semesters = [];
-        state.courses = [];
-        
-        for (const item of importedSems) {
-          let existingSem = state.semesters.find(s => s.name.toLowerCase() === item.semName.toLowerCase());
-          let semId;
-          
-          if (existingSem) {
-            semId = existingSem.id;
-          } else {
-            semId = 'sem-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-            state.semesters.push({ id: semId, name: item.semName, completed: false });
-          }
-          
-          for (const course of item.courses) {
-            let existingCourse = state.courses.find(c => c.code.toLowerCase() === course.code.toLowerCase() && c.semesterId === semId);
-            if (!existingCourse) {
-              const courseId = 'course-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-              state.courses.push({
-                id: courseId,
-                name: course.title,
-                code: course.code,
-                prof: 'Dr. BITS Faculty',
-                semesterId: semId,
-                targetGrade: course.grade || 'A',
-                credits: course.credits || '3.0',
-                themeColor: 'indigo',
-                notes: `Imported from BITS Performance Sheet.\nGrade obtained: ${course.grade || 'Pending'}\n`,
-                checklist: []
-              });
-            }
-          }
-          
-          // Auto-mark as completed if no course has pending grade
-          const semCourses = state.courses.filter(c => c.semesterId === semId);
-          const hasPending = semCourses.some(c => !c.targetGrade || c.targetGrade.toUpperCase() === 'PENDING' || c.targetGrade.toUpperCase() === 'ONGOING');
-          const targetSem = state.semesters.find(s => s.id === semId);
-          if (targetSem && semCourses.length > 0) {
-            targetSem.completed = !hasPending;
-          }
-        }
-        
-        saveStateToStorage();
-        await renderBoard();
-        await renderMetrics();
-        updateGlobalFiltersSelect();
-        
-        showToast(`Successfully imported ${importedSems.length} semesters and courses from BITS performance sheet!`);
-      } catch (err) {
-        console.error('PDF parsing failed',err);
-        loadStateFromStorage();
-        showToast('Could not read this PDF. Your saved courses have been kept.','error');
-      } finally {
-        btnImport.disabled = false;
-        btnImport.innerHTML = originalText;
-        fileInput.value = '';
-      }
-    });
-  }
+  const performanceButtons = ['btn-import-performance','btn-import-grades'].map(id=>document.getElementById(id));
+  performanceButtons.forEach(button=>button.addEventListener('click',()=>{fileInput.value='';fileInput.click();}));
+  document.getElementById('performance-preview-close').addEventListener('click',closePerformancePreview);
+  document.getElementById('performance-preview-cancel').addEventListener('click',closePerformancePreview);
+  document.getElementById('performance-include-pending').addEventListener('change',renderPerformancePreview);
+  document.getElementById('performance-preview-confirm').addEventListener('click',confirmPerformanceImport);
+  document.getElementById('modal-performance-backdrop').addEventListener('keydown',event=>{
+    if (event.key==='Escape') {event.preventDefault();closePerformancePreview();}
+    if (event.key==='Tab') {
+      const controls=Array.from(event.currentTarget.querySelectorAll('button:not(:disabled),input:not(:disabled)'));
+      const first=controls[0],last=controls.at(-1);
+      if (event.shiftKey && (document.activeElement===first || document.activeElement.id==='performance-preview-title')) {event.preventDefault();last.focus();}
+      else if (!event.shiftKey && document.activeElement===last) {event.preventDefault();first.focus();}
+    }
+  });
+  fileInput.addEventListener('change',async event=>{
+    const file=event.target.files[0];
+    if (!file) return;
+    performanceReturnFocus=document.activeElement;
+    performanceButtons.forEach(button=>{button.disabled=true;});
+    document.getElementById('performance-import-status').textContent='Reading your PDF…';
+    try {
+      pendingPerformanceReport=await readPerformancePdf(file);
+      document.getElementById('performance-import-status').textContent='Ready to review. No records have been saved yet.';
+      document.getElementById('performance-include-pending').checked=false;
+      renderPerformancePreview();
+      document.getElementById('modal-performance-backdrop').classList.add('active');
+      document.getElementById('performance-preview-title').focus();
+    } catch (error) {
+      pendingPerformanceReport=null;
+      document.getElementById('performance-import-status').textContent=error.message || 'Could not read this PDF. Your workspace has not changed.';
+      showToast(error.message || 'Could not read this performance sheet. Your records are unchanged.','error');
+    } finally {
+      performanceButtons.forEach(button=>{button.disabled=false;});fileInput.value='';
+    }
+  });
 
   document.getElementById('btn-logout').addEventListener('click', async () => {
     try {
@@ -2768,221 +2718,86 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 });
 
-// ================= PERFORMANCE SHEET PDF PARSER =================
-async function parsePerformanceSheet(file) {
+// ================= PERFORMANCE SHEET IMPORT =================
+let pendingPerformanceReport=null;
+let performanceReturnFocus=null;
+async function readPerformancePdf(file) {
+  if (!/\.pdf$/i.test(file.name) && file.type!=='application/pdf') throw new Error('Choose a PDF performance sheet.');
+  if (file.size>10*1024*1024) throw new Error('Choose a performance PDF smaller than 10 MB.');
+  pdfjsLib.GlobalWorkerOptions.workerSrc=new URL('pdf.worker.min.js',import.meta.url).href;
+  const loading=pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false});
   try {
-    // Fetch local worker script and convert to local Blob URL to ensure CORS-free, MIME-safe worker instantiation!
-    const workerResponse = await fetch('pdf.worker.min.js');
-    const workerText = await workerResponse.text();
-    const workerBlob = new Blob([workerText], { type: 'application/javascript' });
-    pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
-  } catch (workerErr) {
-    console.warn("Failed to create blob worker, falling back to direct URL reference:", workerErr);
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
-  }
-  
-  const arrayBuffer = await file.arrayBuffer();
-  const typedArray = new Uint8Array(arrayBuffer);
-  const pdf = await pdfjsLib.getDocument({ data: typedArray }).promise;
-  let fullText = '';
-  
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const textContent = await page.getTextContent();
-    const pageText = textContent.items.map(item => item.str).join(' ');
-    fullText += pageText + '\n';
-  }
-  
-  return extractCoursesFromText(fullText);
+    const pdf=await loading.promise;
+    if (pdf.numPages>30) throw new Error('Choose a performance sheet with 30 pages or fewer.');
+    const pages=[];
+    for (let i=1;i<=pdf.numPages;i++) {
+      const page=await pdf.getPage(i),text=await page.getTextContent();
+      pages.push({width:page.view[2]-page.view[0],items:text.items.filter(item=>item.str).map(item=>({str:item.str,x:item.transform[4]-page.view[0],y:item.transform[5]}))});
+    }
+    return parsePerformancePages(pages);
+  } finally {await loading.destroy();}
 }
 
-function extractCoursesFromText(text) {
-  const lines = text.split('\n');
-  const semsMap = {};
-  const semsList = [];
-  let currentSems = [];
-  
-  // Regex to detect semester headers (completed & pending sems)
-  const semHeaderRegex = /(FIRST|SECOND|THIRD)\s+SEMESTER\s+(\d{4}-\d{4}|\d{4}-\d{2})|YEAR\s+\d+\s+SEM\s+\d+|SUMMER\s+TERM/ig;
-  
-  // Regex for BITS Pilani course codes (e.g. BIO F101, BITS F101-1, CS F213, CS 101)
-  const courseCodeRegex = /\b([A-Z]{2,5})\s*([F|C|G|K|A-Z]?\d{3,4}(?:-\d)?)\b/g;
-  
-  for (let line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    
-    // Check if line contains semester headings (handles side-by-side headings!)
-    const semMatches = [...trimmed.matchAll(semHeaderRegex)];
-    if (semMatches.length > 0) {
-      // If we only matched 1 semester header, check if it's already in our current active list
-      if (semMatches.length === 1) {
-        const matchedName = toTitleCase(semMatches[0][0].trim());
-        const alreadyActive = currentSems.some(s => s.semName.toLowerCase() === matchedName.toLowerCase());
-        if (alreadyActive) {
-          // It's a duplicate layout repeat, ignore it to keep our two-column active sems active!
-          continue;
-        }
-      }
-      
-      currentSems = [];
-      for (const match of semMatches) {
-        const semName = toTitleCase(match[0].trim());
-        if (!semsMap[semName]) {
-          semsMap[semName] = { semName, courses: [] };
-          semsList.push(semsMap[semName]);
-        }
-        currentSems.push(semsMap[semName]);
-      }
-      continue;
-    }
-    
-    // Check if line contains course entries
-    const codeMatches = [...trimmed.matchAll(courseCodeRegex)];
-    if (codeMatches.length > 0) {
-      // Split the line into chunks, each containing one course
-      const chunks = [];
-      for (let i = 0; i < codeMatches.length; i++) {
-        const start = codeMatches[i].index;
-        const end = (i + 1 < codeMatches.length) ? codeMatches[i+1].index : trimmed.length;
-        chunks.push({
-          code: codeMatches[i][0],
-          text: trimmed.substring(start, end).trim()
-        });
-      }
-      
-      chunks.forEach((chunk, j) => {
-        const code = chunk.code;
-        const parts = chunk.text.split(code);
-        let rest = parts[1] ? parts[1].trim() : '';
-        
-        // Extract grade if present
-        const gradeMatch = rest.match(/\b(A|A-|B|B-|C|C-|D|E|SA|NC)\b/);
-        const grade = gradeMatch ? gradeMatch[0] : '';
-        
-        // Extract credits/units (decimal or integer number)
-        const creditsMatch = rest.match(/\b\d+(?:\.\d+)?\b/);
-        const credits = creditsMatch ? creditsMatch[0] : '3.0';
-        
-        // Clean course name from units, grades, and tags
-        let title = rest.replace(/\b\d+(?:\.\d+)?\b/g, '') // remove units
-                        .replace(/\b(A|A-|B|B-|C|C-|D|E|SA|NC)\b/g, '') // remove grades
-                        .replace(/[^a-zA-Z\s]/g, '') // remove remaining special characters/dashes
-                        .replace(/\s+/g, ' ')
-                        .trim();
-                        
-        if (!title) {
-          title = "Course Title";
-        }
-        
-        title = toTitleCase(title);
-        
-        // Determine which semester this course matches based on columns
-        let targetSem = null;
-        if (currentSems[j]) {
-          targetSem = currentSems[j];
-        } else if (currentSems[0]) {
-          targetSem = currentSems[0];
-        } else {
-          const defaultSemName = "Semester I (Imported)";
-          if (!semsMap[defaultSemName]) {
-            semsMap[defaultSemName] = { semName: defaultSemName, courses: [] };
-            semsList.push(semsMap[defaultSemName]);
-          }
-          targetSem = semsMap[defaultSemName];
-        }
-        
-        if (!targetSem.courses.some(c => c.code === code)) {
-          targetSem.courses.push({ code, title, grade, credits });
-        }
-      });
-    }
-  }
-  
-  if (semsList.length === 0 || semsList.every(s => s.courses.length === 0)) {
-    return getFallbackMockBITSCourses();
-  }
-  
-  return semsList;
+function closePerformancePreview({saved=false}={}) {
+  document.getElementById('performance-import-status').textContent=saved ? '' : 'Import cancelled. Your academic records are unchanged.';
+  document.getElementById('modal-performance-backdrop').classList.remove('active');
+  pendingPerformanceReport=null;
+  performanceReturnFocus?.focus();
+}
+
+function renderPerformancePreview() {
+  if (!pendingPerformanceReport) return;
+  const includePending=document.getElementById('performance-include-pending').checked;
+  const semesters=pendingPerformanceReport.semesters.map(semester=>({...semester,courses:semester.courses.filter(course=>includePending || normalizeGrade(course.grade))})).filter(semester=>semester.courses.length);
+  const totals=academicTotals(semesters.flatMap(semester=>semester.courses));
+  const merged=mergePerformanceSheet(state,pendingPerformanceReport,{includePending});
+  document.getElementById('performance-preview-summary').textContent=`${semesters.length} semesters · ${totals.courseCount} courses · ${totals.totalCredits} credits · Calculated CGPA ${totals.gpa===null?'—':totals.gpa.toFixed(2)}`;
+  document.getElementById('performance-preview-changes').textContent=`${merged.counts.added} new · ${merged.counts.updated} updated · ${merged.counts.unchanged} unchanged. Existing notes, files, tasks, and other courses stay in place.`;
+  const reported=pendingPerformanceReport.reportedCgpa;
+  const warning=document.getElementById('performance-preview-warning');
+  warning.hidden=reported===null || totals.gpa===null || Math.abs(reported-Number(totals.gpa.toFixed(2)))<.011;
+  warning.textContent=`The sheet reports CGPA ${reported?.toFixed(2)}, while the imported grades calculate to ${totals.gpa?.toFixed(2)}. Check the preview before saving; repeated-course rules may need a manual correction.`;
+  const container=document.getElementById('performance-preview-records');container.replaceChildren();
+  semesters.forEach(semester=>{
+    const section=document.createElement('section');
+    const title=document.createElement('h3');title.textContent=semester.semName;section.appendChild(title);
+    const stats=academicTotals(semester.courses);
+    const caption=document.createElement('p');caption.className='academic-caption';caption.textContent=`${stats.courseCount} courses · ${stats.totalCredits} credits · SGPA ${stats.gpa===null?'—':stats.gpa.toFixed(2)}`;section.appendChild(caption);
+    const table=document.createElement('table');table.className='performance-table';
+    table.innerHTML='<thead><tr><th scope="col">Course</th><th scope="col">Credits</th><th scope="col">Grade</th></tr></thead>';
+    const body=document.createElement('tbody');
+    semester.courses.forEach(course=>{
+      const row=document.createElement('tr');
+      for (const value of [`${course.code} · ${course.title}`,course.credits,course.grade || 'Pending']) {const cell=document.createElement('td');cell.textContent=value;row.appendChild(cell);}
+      body.appendChild(row);
+    });
+    table.appendChild(body);section.appendChild(table);container.appendChild(section);
+  });
+  document.getElementById('performance-preview-confirm').disabled=!totals.courseCount;
+}
+
+async function confirmPerformanceImport() {
+  if (!pendingPerformanceReport) return;
+  const button=document.getElementById('performance-preview-confirm');button.disabled=true;
+  try {
+    persistPendingNotes();
+    const result=mergePerformanceSheet(state,pendingPerformanceReport,{includePending:document.getElementById('performance-include-pending').checked});
+    const previous=state;
+    state=result.state;
+    try {saveStateToStorage();}
+    catch (error) {state=previous;try {saveStateToStorage();} catch {} throw error;}
+    closePerformancePreview({saved:true});
+    await renderBoard();await renderMetrics();updateGlobalFiltersSelect();
+    if (activeTab==='cgpa') renderCgpaCalculator();
+    const message=`Performance sheet saved: ${result.counts.added} added, ${result.counts.updated} updated, ${result.counts.unchanged} unchanged.`;
+    document.getElementById('performance-import-status').textContent=message;showToast(message);
+  } catch (error) {
+    showToast('Could not save the import. Please try again.','error');
+  } finally {button.disabled=false;}
 }
 
 function toTitleCase(str) {
-  return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
-}
-
-function getFallbackMockBITSCourses() {
-  return [
-    {
-      semName: "First Semester 2025-2026",
-      courses: [
-        { code: "BIO F101", title: "Introduction To Biological Sci", grade: "A-", credits: "3.0" },
-        { code: "BITS F101-1", title: "Social Conduct", grade: "A", credits: "0.5" },
-        { code: "BITS F103", title: "Introduction To Engineering Design", grade: "A-", credits: "4.0" },
-        { code: "BITS F111", title: "Thermodynamics", grade: "B-", credits: "3.0" },
-        { code: "BITS K101-1", title: "Phyed Heal & Welbein Crea Art", grade: "SA", credits: "0.5" },
-        { code: "CHEM F101", title: "Fundamentals Of Chemistry", grade: "B", credits: "3.0" },
-        { code: "MATH F101", title: "Multivariable Calculus", grade: "B-", credits: "3.0" }
-      ]
-    },
-    {
-      semName: "Second Semester 2025-2026",
-      courses: [
-        { code: "BITS F101-2", title: "Social Conduct", grade: "A", credits: "0.5" },
-        { code: "BITS F102", title: "Innovation And Design Thinking", grade: "B-", credits: "1.0" },
-        { code: "BITS K101-2", title: "Phyed Heal & Welbein Crea Art", grade: "SA", credits: "0.5" },
-        { code: "CS F111", title: "Computer Programming", grade: "A-", credits: "4.0" },
-        { code: "EEE F111", title: "Electrical Sciences", grade: "B-", credits: "3.0" },
-        { code: "HSS F101", title: "Understanding Self And Society", grade: "B", credits: "3.0" },
-        { code: "MATH F102", title: "Linear Algebra And Complex Variables", grade: "B-", credits: "3.0" },
-        { code: "MATH F113", title: "Probability & Statistics", grade: "A-", credits: "3.0" },
-        { code: "PHY F101", title: "Oscillations And Waves", grade: "B-", credits: "3.0" }
-      ]
-    },
-    {
-      semName: "Summer Term",
-      courses: [
-        { code: "BITS F221", title: "Practice School I", grade: "Pending", credits: "5.0" }
-      ]
-    },
-    {
-      semName: "Year 2 Sem 1",
-      courses: [
-        { code: "CS F213", title: "Object Oriented Prog", grade: "Pending", credits: "4.0" },
-        { code: "CS F214", title: "Logic In Computer Sc", grade: "Pending", credits: "3.0" },
-        { code: "CS F215", title: "Digital Design", grade: "Pending", credits: "4.0" },
-        { code: "CS F222", title: "Discr Struc For Comp Sci", grade: "Pending", credits: "3.0" },
-        { code: "ECON F211", title: "Principles Of Economics", grade: "Pending", credits: "3.0" },
-        { code: "MATH F211", title: "Mathematics III", grade: "Pending", credits: "3.0" },
-        { code: "MGTS F211", title: "Principles Of Management", grade: "Pending", credits: "3.0" }
-      ]
-    },
-    {
-      semName: "Year 2 Sem 2",
-      courses: [
-        { code: "BITS F225", title: "Environmental Studies", grade: "Pending", credits: "3.0" },
-        { code: "CS F211", title: "Data Structures & Algo", grade: "Pending", credits: "4.0" },
-        { code: "CS F212", title: "Database Systems", grade: "Pending", credits: "4.0" },
-        { code: "CS F241", title: "Microproc & Interfacing", grade: "Pending", credits: "4.0" }
-      ]
-    },
-    {
-      semName: "Year 3 Sem 1",
-      courses: [
-        { code: "CS F301", title: "Principles Of Progg Lang", grade: "Pending", credits: "2.0" },
-        { code: "CS F342", title: "Computer Architecture", grade: "Pending", credits: "4.0" },
-        { code: "CS F351", title: "Theory Of Computation", grade: "Pending", credits: "3.0" },
-        { code: "CS F372", title: "Operating Systems", grade: "Pending", credits: "3.0" }
-      ]
-    },
-    {
-      semName: "Year 3 Sem 2",
-      courses: [
-        { code: "CS F303", title: "Computer Networks", grade: "Pending", credits: "4.0" },
-        { code: "CS F363", title: "Compiler Construction", grade: "Pending", credits: "3.0" },
-        { code: "CS F364", title: "Design & Anal Of Algo", grade: "Pending", credits: "3.0" }
-      ]
-    }
-  ];
+  return str.replace(/\w\S*/g,txt=>txt.charAt(0).toUpperCase()+txt.slice(1).toLowerCase());
 }
 
 // ================= MODERN TOAST SYSTEM =================
@@ -3036,239 +2851,48 @@ function showToast(message, type = 'success') {
 }
 
 // ================= CGPA CALCULATOR MODULE =================
-const BITS_GRADE_POINTS = {
-  'A': 10,
-  'A-': 9,
-  'B': 8,
-  'B-': 7,
-  'C': 6,
-  'C-': 5,
-  'D': 4,
-  'E': 2
-};
-
 function renderCgpaCalculator() {
-  const semestersContainer = document.getElementById('cgpa-semesters-container');
-  if (!semestersContainer) return;
-  semestersContainer.innerHTML = '';
-  
-  let totalOverallPoints = 0;
-  let totalOverallCredits = 0;
-  let totalOverallCourses = 0;
-  
-  if (state.semesters.length === 0) {
-    semestersContainer.innerHTML = `
-      <div class="empty-state" style="grid-column: 1 / -1; width: 100%;">
-        <div class="empty-state-icon"><i data-lucide="calculator"></i></div>
-        <div class="empty-state-title">No Semesters to Calculate</div>
-        <div class="empty-state-desc">Upload your BITS performance sheet or add semesters & courses to start tracking CGPA.</div>
-      </div>
-    `;
-    updateOverallCgpaUI(0, 0, 0);
-    lucide.createIcons();
+  const container=document.getElementById('cgpa-semesters-container');
+  if (!container) return;
+  container.replaceChildren();
+  const overall=academicTotals(state.courses);
+  document.getElementById('overall-cgpa-display').textContent=overall.gpa===null?'—':overall.gpa.toFixed(2);
+  document.getElementById('overall-credits-display').textContent=overall.totalCredits.toFixed(1);
+  document.getElementById('overall-courses-display').textContent=overall.courseCount;
+  document.getElementById('overall-gpa-credits-display').textContent=overall.gradedCredits.toFixed(1);
+  if (!state.semesters.length) {
+    container.innerHTML='<div class="empty-state"><div class="empty-state-title">Your academic record starts here</div><div class="empty-state-desc">Upload your performance sheet above to save past grades, or add your own courses. Nothing is preloaded.</div></div>';
     return;
   }
-  
-  state.semesters.forEach(sem => {
-    const semCourses = state.courses.filter(c => c.semesterId === sem.id);
-    
-    let semPoints = 0;
-    let semCredits = 0;
-    let calculatedCoursesCount = 0;
-    
-    const semCard = document.createElement('div');
-    semCard.className = 'sidebar-card';
-    semCard.style.cssText = `
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 16px;
-      backdrop-filter: blur(8px);
-      padding: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    `;
-    
-    const semHeader = document.createElement('div');
-    semHeader.style.cssText = `
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--border-color);
-      padding-bottom: 0.75rem;
-    `;
-    
-    const semTitle = document.createElement('h3');
-    semTitle.style.cssText = 'font-size: 1.15rem; font-weight: 600; margin: 0; color: var(--text-primary);';
-    semTitle.innerText = sem.name;
-    
-    const semSgpaBadge = document.createElement('span');
-    semSgpaBadge.id = `sgpa-badge-${sem.id}`;
-    semSgpaBadge.style.cssText = `
-      background: linear-gradient(135deg, #176052 0%, #398473 100%);
-      color: #ffffff;
-      font-size: 0.85rem;
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 20px;
-      box-shadow: 0 2px 10px rgba(221, 140, 150, 0.2);
-    `;
-    
-    semHeader.appendChild(semTitle);
-    semHeader.appendChild(semSgpaBadge);
-    semCard.appendChild(semHeader);
-    
-    const courseList = document.createElement('div');
-    courseList.style.cssText = 'display: flex; flex-direction: column; gap: 0.75rem;';
-    
-    if (semCourses.length === 0) {
-      courseList.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; padding: 1rem;">No courses in this semester</div>`;
-    } else {
-      semCourses.forEach(course => {
-        const row = document.createElement('div');
-        row.style.cssText = `
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(255,255,255,0.05);
-          border-radius: 8px;
-          padding: 0.5rem 0.75rem;
-          gap: 0.5rem;
-        `;
-        
-        const details = document.createElement('div');
-        details.style.cssText = 'display: flex; flex-direction: column; min-width: 0;';
-        
-        const code = document.createElement('span');
-        code.style.cssText = 'font-size: 0.8rem; font-weight: 700; color: var(--color-accent);';
-        code.innerText = course.code || 'N/A';
-        
-        const name = document.createElement('span');
-        name.style.cssText = 'font-size: 0.85rem; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;';
-        name.innerText = course.name;
-        name.title = course.name;
-        
-        const credits = document.createElement('span');
-        credits.style.cssText = 'font-size: 0.75rem; color: var(--text-secondary);';
-        credits.innerText = `${course.credits || '3.0'} Credits`;
-        
-        details.appendChild(code);
-        details.appendChild(name);
-        details.appendChild(credits);
-        row.appendChild(details);
-        
-        const select = document.createElement('select');
-        select.style.cssText = `
-          background: var(--bg-card);
-          border: 1px solid var(--border-color);
-          border-radius: 6px;
-          color: var(--text-primary);
-          font-size: 0.8rem;
-          padding: 2px 6px;
-          outline: none;
-          cursor: pointer;
-        `;
-        
-        const gradeOptions = ['Pending', 'A', 'A-', 'B', 'B-', 'C', 'C-', 'D', 'E', 'SA', 'NC'];
-        gradeOptions.forEach(opt => {
-          const optEl = document.createElement('option');
-          optEl.value = opt;
-          optEl.innerText = opt === 'Pending' ? 'Ongoing' : opt;
-          const currentGrade = (course.targetGrade || '').trim().toUpperCase();
-          const targetMatch = currentGrade === opt.toUpperCase() || (currentGrade === '' && opt === 'Pending');
-          if (targetMatch) {
-            optEl.selected = true;
-          }
-          select.appendChild(optEl);
-        });
-        
-        select.addEventListener('change', () => {
-          const val = select.value;
-          course.targetGrade = val === 'Pending' ? '' : val;
-          saveStateToStorage();
-          recalculateCgpa();
-          showToast(`Grade updated for ${course.code}!`, 'success');
-        });
-        
-        row.appendChild(select);
-        courseList.appendChild(row);
-        
-        const currentGrade = (course.targetGrade || '').trim().toUpperCase();
-        if (currentGrade && currentGrade !== 'PENDING' && currentGrade !== 'SA' && currentGrade !== 'NC') {
-          const pts = BITS_GRADE_POINTS[currentGrade];
-          if (pts !== undefined) {
-            const cr = parseFloat(course.credits) || 3.0;
-            semPoints += pts * cr;
-            semCredits += cr;
-            calculatedCoursesCount++;
-          }
-        }
+  state.semesters.forEach(semester=>{
+    const courses=state.courses.filter(course=>course.semesterId===semester.id),totals=academicTotals(courses);
+    const card=document.createElement('section');card.className='academic-semester';
+    const header=document.createElement('div');header.className='academic-semester-header';
+    const title=document.createElement('h3');title.textContent=semester.name;
+    const badge=document.createElement('span');badge.className='academic-sgpa';badge.textContent=`SGPA ${totals.gpa===null?'—':totals.gpa.toFixed(2)}`;
+    header.append(title,badge);card.appendChild(header);
+    const meta=document.createElement('p');meta.className='academic-caption';meta.textContent=`${totals.courseCount} courses · ${totals.totalCredits} credits · ${totals.recordedCount} grades recorded`;card.appendChild(meta);
+    if (!courses.length) {const empty=document.createElement('p');empty.textContent='No courses in this semester yet.';card.appendChild(empty);}
+    courses.forEach(course=>{
+      const row=document.createElement('div');row.className='academic-course';
+      const details=document.createElement('div');details.className='academic-course-info';
+      const code=document.createElement('strong');code.textContent=course.code;
+      const name=document.createElement('span');name.textContent=course.name;
+      const credits=document.createElement('small');credits.textContent=`${Number(course.credits) || 0} credits`;
+      details.append(code,name,credits);
+      const select=document.createElement('select');select.className='form-control academic-grade';select.setAttribute('aria-label',`Recorded grade for ${course.code}, ${semester.name}`);
+      const options=[...GRADE_OPTIONS];const current=courseGrade(course);if (current && !options.includes(current)) options.push(current);
+      options.forEach(grade=>select.add(new Option(grade || 'Pending',grade,false,grade===current)));
+      select.addEventListener('change',()=>{
+        course.grade=normalizeGrade(select.value);delete course.targetGrade;
+        semester.completed=courses.length>0 && courses.every(item=>!!courseGrade(item));
+        saveStateToStorage();renderCgpaCalculator();
+        showToast(`Recorded grade saved for ${course.code}.`);
       });
-    }
-    semCard.appendChild(courseList);
-    semestersContainer.appendChild(semCard);
-    
-    const semSgpa = semCredits > 0 ? (semPoints / semCredits).toFixed(2) : '0.00';
-    semSgpaBadge.innerText = `SGPA: ${semSgpa}`;
-    
-    totalOverallPoints += semPoints;
-    totalOverallCredits += semCredits;
-    totalOverallCourses += calculatedCoursesCount;
-  });
-  
-  updateOverallCgpaUI(totalOverallPoints, totalOverallCredits, totalOverallCourses);
-  lucide.createIcons();
-}
-
-function recalculateCgpa() {
-  let totalOverallPoints = 0;
-  let totalOverallCredits = 0;
-  let totalOverallCourses = 0;
-  
-  state.semesters.forEach(sem => {
-    const semCourses = state.courses.filter(c => c.semesterId === sem.id);
-    let semPoints = 0;
-    let semCredits = 0;
-    let calculatedCoursesCount = 0;
-    
-    semCourses.forEach(course => {
-      const currentGrade = (course.targetGrade || '').trim().toUpperCase();
-      if (currentGrade && currentGrade !== 'PENDING' && currentGrade !== 'SA' && currentGrade !== 'NC') {
-        const pts = BITS_GRADE_POINTS[currentGrade];
-        if (pts !== undefined) {
-          const cr = parseFloat(course.credits) || 3.0;
-          semPoints += pts * cr;
-          semCredits += cr;
-          calculatedCoursesCount++;
-        }
-      }
+      row.append(details,select);card.appendChild(row);
     });
-    
-    const semSgpa = semCredits > 0 ? (semPoints / semCredits).toFixed(2) : '0.00';
-    const badge = document.getElementById(`sgpa-badge-${sem.id}`);
-    if (badge) {
-      badge.innerText = `SGPA: ${semSgpa}`;
-    }
-    
-    totalOverallPoints += semPoints;
-    totalOverallCredits += semCredits;
-    totalOverallCourses += calculatedCoursesCount;
+    container.appendChild(card);
   });
-  
-  updateOverallCgpaUI(totalOverallPoints, totalOverallCredits, totalOverallCourses);
-}
-
-function updateOverallCgpaUI(points, credits, coursesCount) {
-  const overallCgpa = credits > 0 ? (points / credits).toFixed(2) : '0.00';
-  
-  const cgpaDisplay = document.getElementById('overall-cgpa-display');
-  const creditsDisplay = document.getElementById('overall-credits-display');
-  const coursesDisplay = document.getElementById('overall-courses-display');
-  
-  if (cgpaDisplay) cgpaDisplay.innerText = overallCgpa;
-  if (creditsDisplay) creditsDisplay.innerText = credits.toFixed(1);
-  if (coursesDisplay) coursesDisplay.innerText = coursesCount;
 }
 
 // ================= BITS CHRONO TIMETABLE PLANNER MODULE =================
@@ -4635,7 +4259,7 @@ function applyDashboardFilters() {
     let matches = 0;
     column.querySelectorAll('.course-card').forEach(card => {
       const course = state.courses.find(item => item.id === card.dataset.id);
-      const match = !!course && [course.name, course.code, course.prof].join(' ').toLocaleLowerCase().includes(query);
+      const match = !!course && [course.name, course.code].join(' ').toLocaleLowerCase().includes(query);
       card.hidden = !match;
       if (match) matches++;
     });

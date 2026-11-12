@@ -2352,3 +2352,46 @@ button:disabled {opacity: .55; cursor: wait; transform: none !important;}
   .login-card {margin: auto;}
   .login-wrapper {align-items: flex-start;}
 }
+
+/* Academic records and explicit performance-sheet imports */
+.performance-upload-card {display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 24px; margin-bottom: 12px; border: 1px solid #ccddd2; border-radius: 14px; background: #edf4ee;}
+.performance-upload-card h2 {font-size: 20px; letter-spacing: -.5px; margin-bottom: 8px;}
+.performance-upload-card p {font-size: 14px; line-height: 1.6; max-width: 680px; color: var(--text-secondary);}
+.performance-upload-card small {display: block; color: var(--text-secondary); margin-top: 10px; line-height: 1.5;}
+.performance-upload-card .btn {flex-shrink: 0;}
+.academic-caption {font-size: 13px; line-height: 1.6; color: var(--text-secondary); margin-bottom: 12px;}
+.academic-overall-totals {display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 28px; color: var(--text-secondary); font-size: 14px;}
+.academic-grading-note {font-size: 12px; line-height: 1.8; color: var(--text-secondary); margin: -8px 0 24px;}
+.academic-semesters {display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,380px),1fr)); gap: 20px; padding-bottom: 36px;}
+.academic-semester {min-width: 0; background: #fff; border: 1px solid var(--border-color); border-radius: 14px; padding: 22px;}
+.academic-semester-header {display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px;}
+.academic-semester-header h3 {font-size: 17px; line-height: 1.4;}
+.academic-sgpa {white-space: nowrap; padding: 5px 9px; border-radius: 7px; background: #e8f2eb; color: #176052; font-size: 13px; font-weight: 600;}
+.academic-course {display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border-color);}
+.academic-course-info {display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 13px;}
+.academic-course-info strong {font-size: 12px; color: #176052;}
+.academic-course-info span {overflow-wrap: anywhere; line-height: 1.5;}
+.academic-course-info small {color: var(--text-muted);}
+.academic-grade {width: 100px; min-width: 100px; font-size: 13px; padding: 8px;}
+.course-recorded-grade {font-size: 12px; color: var(--text-secondary);}
+.performance-preview-modal {width: 850px; max-width: 100%; max-height: calc(100dvh - 40px); display: flex; flex-direction: column;}
+.performance-preview-modal .modal-body {overflow-y: auto; overscroll-behavior: contain; min-height: 0;}
+.performance-preview-modal .modal-header, .performance-preview-modal .modal-footer {flex-shrink: 0;}
+.performance-preview-summary {font-size: 15px; font-weight: 600; margin-bottom: 10px;}
+.performance-pending-option {display: flex; align-items: center; gap: 10px; font-size: 14px; line-height: 1.5; margin: 18px 0;}
+.performance-pending-option input {accent-color: #176052; width: 18px; height: 18px; flex-shrink: 0;}
+#performance-preview-records section {margin-top: 24px;}
+#performance-preview-records h3 {font-size: 16px; margin-bottom: 4px;}
+.performance-table {width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px;}
+.performance-table th, .performance-table td {text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border-color); overflow-wrap: anywhere;}
+.performance-table th:first-child {width: 70%;}
+.performance-table th {background: #f4f6f1; font-weight: 600;}
+@media (max-width: 700px) {
+  .performance-upload-card {align-items: flex-start; flex-direction: column; padding: 20px; gap: 16px;}
+  .performance-upload-card .btn {width: 100%; justify-content: center;}
+  .academic-semester {padding: 18px;}
+  .performance-preview-modal {max-height: calc(100dvh - 24px);}
+  .performance-preview-modal .modal-footer {flex-wrap: wrap;}
+  .performance-preview-modal .modal-footer .btn {flex: 1; justify-content: center;}
+  .performance-table th:first-child {width: 60%;}
+}

@@ -6,7 +6,7 @@
   "scripts": {
     "postinstall": "node scripts/vendor-supabase.mjs",
     "test": "node --test tests/*.test.js",
-    "check": "node --check script.js && node --check backend.js",
+    "check": "node --check script.js && node --check backend.js && node --check academics.js",
     "start": "python3 -m http.server 3000 --bind 127.0.0.1"
   },
   "dependencies": {
