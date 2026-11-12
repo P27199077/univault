@@ -4,7 +4,7 @@ import {COURSE_BROWNS,courseCategory} from './academics.js';
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 export const animate = T.gsap;
 
-// An original, procedural room. No remote models, tracking, or scene downloads.
+// An original, procedural room with rotatory orbit navigation and table focus.
 export class StudyRoom {
   constructor(host, stage, {onShelf,onNavigate}={}) {
     this.host=host;this.stage=stage;this.mode='room';this.bookMeshes=[];this.materials=new Map();this.disposed=false;this.paperTextures=[];this.paperMaterials=[];
@@ -15,14 +15,35 @@ export class StudyRoom {
     this.renderer.outputColorSpace=T.SRGBColorSpace;this.renderer.toneMapping=T.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.22;
     this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=T.PCFSoftShadowMap;
     this.renderer.domElement.setAttribute('aria-hidden','true');host.append(this.renderer.domElement);
-    this.look=new T.Vector3(0,2,-.5);
+    
+    // Core targets for navigation
+    this.roomTarget=new T.Vector3(0,2.0,-.55);
+    this.tableTarget=new T.Vector3(-1.75,1.70,-.65);
+    this.look=this.roomTarget.clone();
+    this.panOffset=new T.Vector3(0,0,0);
+    this.targetPanOffset=new T.Vector3(0,0,0);
+
+    // Spherical orbit parameters:
+    this.defaultDistance=16.72;
+    this.minDistance=3.8;
+    this.maxDistance=21.0;
+    this.minPolar=0.28;
+    this.maxPolar=1.45;
+    this.minAzimuth=-0.55;
+    this.maxAzimuth=1.52;
+
+    this.spherical={radius:this.defaultDistance,phi:1.291,theta:0.598};
+    this.targetSpherical={...this.spherical};
+    this.animFrameId=null;
+
     this.scene.add(new T.HemisphereLight(0xfff1d9,0x897653,2.5));
     const sun=new T.DirectionalLight(0xffe1ad,4);sun.position.set(-4,8,6);sun.castShadow=true;
     sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-9;sun.shadow.camera.right=9;sun.shadow.camera.top=8;sun.shadow.camera.bottom=-7;sun.shadow.normalBias=.035;this.scene.add(sun);
     this.buildRoom();this.buildCabinet();
     this.ray=new T.Raycaster();this.pointer=new T.Vector2();
-    this.targets=[this.cabinet,this.calendar,this.taskPad,this.journal];
-    ['shelf','calendar','todo','cgpa'].forEach((action,i)=>this.targets[i].userData.roomAction=action);
+    this.targets=[this.cabinet,this.calendar,this.taskPad,this.journal,this.desk];
+    ['shelf','calendar','todo','cgpa','desk'].forEach((action,i)=>this.targets[i].userData.roomAction=action);
+
     const objectHit=event=>{
       if(this.mode!=='room')return null;
       const rect=this.renderer.domElement.getBoundingClientRect();
@@ -32,10 +53,129 @@ export class StudyRoom {
       while(object&&!object.userData.roomAction)object=object.parent;
       return object?.userData.roomAction || null;
     };
-    this.pickShelf=event=>{const action=objectHit(event);if(action==='shelf')onShelf?.();else if(action)onNavigate?.(action);};
-    this.hoverShelf=event=>{this.renderer.domElement.style.cursor=objectHit(event)?'pointer':'default';};
-    this.renderer.domElement.addEventListener('pointerup',this.pickShelf);
-    this.renderer.domElement.addEventListener('pointermove',this.hoverShelf);
+
+    // Navigation and gesture tracking
+    let isPointerDown=false, moved=false, startX=0, startY=0, lastX=0, lastY=0, startTime=0;
+    const activePointers=new Map();
+    let pinchStartDist=0, pinchStartRadius=0;
+
+    this.onPointerDown=event=>{
+      if(this.mode!=='room')return;
+      activePointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+      if(activePointers.size===1){
+        isPointerDown=true;moved=false;
+        startX=lastX=event.clientX;startY=lastY=event.clientY;startTime=performance.now();
+        try{this.renderer.domElement.setPointerCapture?.(event.pointerId);}catch{}
+      } else if(activePointers.size===2){
+        const [p1,p2]=[...activePointers.values()];
+        pinchStartDist=Math.hypot(p1.x-p2.x,p1.y-p2.y);
+        pinchStartRadius=this.targetSpherical.radius;
+      }
+    };
+
+    this.onPointerMove=event=>{
+      if(activePointers.has(event.pointerId))activePointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+      if(this.mode!=='room')return;
+
+      if(activePointers.size===2){
+        const [p1,p2]=[...activePointers.values()];
+        const dist=Math.hypot(p1.x-p2.x,p1.y-p2.y);
+        if(pinchStartDist>0){
+          const factor=pinchStartDist/Math.max(dist,1);
+          this.targetSpherical.radius=Math.max(this.minDistance,Math.min(this.maxDistance,pinchStartRadius*factor));
+          this.scheduleFrame();
+        }
+        return;
+      }
+
+      if(!isPointerDown){
+        const hit=objectHit(event);
+        this.renderer.domElement.style.cursor=hit?'pointer':'grab';
+        return;
+      }
+
+      const dx=event.clientX-lastX, dy=event.clientY-lastY;
+      const dist=Math.hypot(event.clientX-startX,event.clientY-startY);
+      if(dist>4)moved=true;
+
+      if(moved){
+        this.host.classList.add('is-dragging');
+        this.renderer.domElement.style.cursor='grabbing';
+        this.dismissHint();
+        const rect=this.host.getBoundingClientRect();
+        const w=rect.width || 800, h=rect.height || 600;
+
+        if(event.button===2||event.shiftKey){
+          // Pan in view plane
+          const panSpeed=(this.spherical.radius/w)*1.2;
+          const sinT=Math.sin(this.spherical.theta), cosT=Math.cos(this.spherical.theta);
+          this.targetPanOffset.x+=(-cosT*dx)*panSpeed;
+          this.targetPanOffset.z+=(sinT*dx)*panSpeed;
+          this.targetPanOffset.y+=dy*panSpeed;
+          this.targetPanOffset.x=Math.max(-3.5,Math.min(3.5,this.targetPanOffset.x));
+          this.targetPanOffset.y=Math.max(-1.5,Math.min(2.5,this.targetPanOffset.y));
+          this.targetPanOffset.z=Math.max(-3.5,Math.min(3.5,this.targetPanOffset.z));
+        } else {
+          // Orbit rotation
+          const rotSpeedX=(Math.PI*1.55)/w;
+          const rotSpeedY=(Math.PI*1.2)/h;
+          this.targetSpherical.theta+=dx*rotSpeedX;
+          this.targetSpherical.phi+=dy*rotSpeedY;
+
+          const t=Math.max(0,Math.min(1,(this.defaultDistance-this.targetSpherical.radius)/(this.defaultDistance-this.minDistance)));
+          const curMinAz=this.minAzimuth-t*0.25;
+          const curMaxAz=this.maxAzimuth+t*0.25;
+          this.targetSpherical.theta=Math.max(curMinAz,Math.min(curMaxAz,this.targetSpherical.theta));
+          this.targetSpherical.phi=Math.max(this.minPolar,Math.min(this.maxPolar,this.targetSpherical.phi));
+        }
+        lastX=event.clientX;lastY=event.clientY;
+        this.scheduleFrame();
+      }
+    };
+
+    this.onPointerUp=event=>{
+      activePointers.delete(event.pointerId);
+      if(activePointers.size===0){
+        isPointerDown=false;
+        this.host.classList.remove('is-dragging');
+        this.renderer.domElement.style.cursor=objectHit(event)?'pointer':'grab';
+        try{this.renderer.domElement.releasePointerCapture?.(event.pointerId);}catch{}
+        if(!moved&&(performance.now()-startTime<450)){
+          const action=objectHit(event);
+          if(action==='desk')this.focusTable();
+          else if(action==='shelf')onShelf?.();
+          else if(action)onNavigate?.(action);
+        }
+      }
+    };
+
+    this.onWheel=event=>{
+      if(this.mode!=='room')return;
+      event.preventDefault();
+      this.dismissHint();
+      const delta=Math.sign(event.deltaY)*Math.min(Math.abs(event.deltaY),80);
+      const zoomFactor=0.016*(this.targetSpherical.radius/9);
+      this.targetSpherical.radius=Math.max(this.minDistance,Math.min(this.maxDistance,this.targetSpherical.radius+delta*zoomFactor));
+      this.scheduleFrame();
+    };
+
+    this.onDblClick=event=>{
+      if(this.mode!=='room')return;
+      event.preventDefault();
+      if(this.spherical.radius>8.5)this.focusTable();
+      else this.resetView();
+    };
+
+    this.onKeyDown=event=>this.handleKeyDown(event);
+
+    this.renderer.domElement.addEventListener('pointerdown',this.onPointerDown);
+    this.renderer.domElement.addEventListener('pointermove',this.onPointerMove);
+    this.renderer.domElement.addEventListener('pointerup',this.onPointerUp);
+    this.renderer.domElement.addEventListener('pointercancel',this.onPointerUp);
+    this.renderer.domElement.addEventListener('wheel',this.onWheel,{passive:false});
+    this.renderer.domElement.addEventListener('dblclick',this.onDblClick);
+    window.addEventListener('keydown',this.onKeyDown);
+
     this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(host);
     this.contextLost=event=>{event.preventDefault();stage.classList.add('room-unavailable');};
     this.renderer.domElement.addEventListener('webglcontextlost',this.contextLost);
@@ -75,7 +215,7 @@ export class StudyRoom {
     for(let i=0;i<9;i++)this.box(.12,.006,2.9,'#c58e60',-3.7+i*.51,.052,.75);
     this.box(4.6,.007,.14,'#d4ad77',-1.65,.057,-.65);this.box(4.6,.007,.14,'#d4ad77',-1.65,.057,2.14);
     // Desk and tapered legs.
-    this.box(3.8,.19,1.55,wood,-1.9,1.65,-.65);
+    this.desk=this.box(3.8,.19,1.55,wood,-1.9,1.65,-.65);
     for(const x of [-3.48,-.33])for(const z of [-1.2,-.08]){const leg=this.cylinder(.08,.045,1.5,dark,x,.82,z);leg.rotation.z=x<-2?.035:-.035;}
     for(const y of [1.36,1.08]){this.box(.94,.23,1.2,'#9b6b44',-3.15,y,-.66);this.box(.3,.035,.055,'#c19a5d',-3.15,y,-.02);}
     // Olive mid-century chair.
@@ -152,15 +292,134 @@ export class StudyRoom {
     c.textAlign='center';c.fillStyle='#dfc08c';c.font='32px Georgia';c.fillText('GRADES',300,180);c.fillText('JOURNAL',300,228);
     c.font='17px sans-serif';c.fillText('THE UNIVAULT STUDY',300,320);return canvas;
   }
+  dismissHint() {
+    const hint=this.stage?.querySelector('#room-nav-hint');
+    if(hint&&!hint.classList.contains('dismissed'))hint.classList.add('dismissed');
+  }
+  scheduleFrame() {
+    if(this.disposed||this.mode!=='room')return;
+    if(!this.animFrameId)this.animFrameId=requestAnimationFrame(()=>this.updateFrame());
+  }
+  updateFrame(force=false) {
+    if(this.disposed)return;
+    if(this.mode!=='room'){this.animFrameId=null;return;}
+
+    const damping=0.12;
+    this.spherical.radius+=(this.targetSpherical.radius-this.spherical.radius)*damping;
+    this.spherical.phi+=(this.targetSpherical.phi-this.spherical.phi)*damping;
+    this.spherical.theta+=(this.targetSpherical.theta-this.spherical.theta)*damping;
+    this.panOffset.lerp(this.targetPanOffset,damping);
+
+    // Zooming closer to the table smoothly guides the look target to the desk surface.
+    const t=Math.max(0,Math.min(1,(this.defaultDistance-this.spherical.radius)/(this.defaultDistance-this.minDistance)));
+    const smoothT=t*t*(3-2*t);
+    const targetX=this.roomTarget.x+(this.tableTarget.x-this.roomTarget.x)*smoothT+this.panOffset.x;
+    const targetY=this.roomTarget.y+(this.tableTarget.y-this.roomTarget.y)*smoothT+this.panOffset.y;
+    const targetZ=this.roomTarget.z+(this.tableTarget.z-this.roomTarget.z)*smoothT+this.panOffset.z;
+    this.look.set(targetX,targetY,targetZ);
+
+    const sinP=Math.sin(this.spherical.phi),cosP=Math.cos(this.spherical.phi);
+    const sinT=Math.sin(this.spherical.theta),cosT=Math.cos(this.spherical.theta);
+    this.camera.position.set(
+      targetX+this.spherical.radius*sinP*sinT,
+      targetY+this.spherical.radius*cosP,
+      targetZ+this.spherical.radius*sinP*cosT
+    );
+    this.render();
+
+    const radDiff=Math.abs(this.targetSpherical.radius-this.spherical.radius);
+    const phiDiff=Math.abs(this.targetSpherical.phi-this.spherical.phi);
+    const thetaDiff=Math.abs(this.targetSpherical.theta-this.spherical.theta);
+    const panDiff=this.panOffset.distanceTo(this.targetPanOffset);
+
+    if(radDiff>0.005||phiDiff>0.002||thetaDiff>0.002||panDiff>0.005){
+      this.animFrameId=requestAnimationFrame(()=>this.updateFrame());
+    } else {
+      this.animFrameId=null;
+    }
+  }
+  focusTable() {
+    if(this.disposed||this.mode!=='room')return;
+    this.dismissHint();
+    const targetRadius=4.8,targetPhi=1.12,targetTheta=0.62;
+    if(reduced()){
+      this.spherical.radius=this.targetSpherical.radius=targetRadius;
+      this.spherical.phi=this.targetSpherical.phi=targetPhi;
+      this.spherical.theta=this.targetSpherical.theta=targetTheta;
+      this.panOffset.set(0,0,0);this.targetPanOffset.set(0,0,0);
+      this.updateFrame(true);return;
+    }
+    T.gsap.to(this.targetSpherical,{radius:targetRadius,phi:targetPhi,theta:targetTheta,duration:1.1,ease:'power2.inOut',onUpdate:()=>this.scheduleFrame()});
+    T.gsap.to(this.targetPanOffset,{x:0,y:0,z:0,duration:1.1,ease:'power2.inOut'});
+  }
+  resetView() {
+    if(this.disposed||this.mode!=='room')return;
+    this.dismissHint();
+    const targetRadius=this.defaultDistance,targetPhi=1.291,targetTheta=0.598;
+    if(reduced()){
+      this.spherical.radius=this.targetSpherical.radius=targetRadius;
+      this.spherical.phi=this.targetSpherical.phi=targetPhi;
+      this.spherical.theta=this.targetSpherical.theta=targetTheta;
+      this.panOffset.set(0,0,0);this.targetPanOffset.set(0,0,0);
+      this.updateFrame(true);return;
+    }
+    T.gsap.to(this.targetSpherical,{radius:targetRadius,phi:targetPhi,theta:targetTheta,duration:1.1,ease:'power2.inOut',onUpdate:()=>this.scheduleFrame()});
+    T.gsap.to(this.targetPanOffset,{x:0,y:0,z:0,duration:1.1,ease:'power2.inOut'});
+  }
+  zoomBy(delta) {
+    if(this.disposed||this.mode!=='room')return;
+    this.dismissHint();
+    const targetRadius=Math.max(this.minDistance,Math.min(this.maxDistance,this.targetSpherical.radius+delta));
+    if(reduced()){
+      this.spherical.radius=this.targetSpherical.radius=targetRadius;
+      this.updateFrame(true);return;
+    }
+    T.gsap.to(this.targetSpherical,{radius:targetRadius,duration:.45,ease:'power1.out',onUpdate:()=>this.scheduleFrame()});
+  }
+  handleKeyDown(event) {
+    if(this.disposed||this.mode!=='room')return;
+    if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
+    let handled=false;
+    switch(event.key){
+      case 'ArrowLeft':
+        this.targetSpherical.theta=Math.max(this.minAzimuth,this.targetSpherical.theta-0.08);handled=true;break;
+      case 'ArrowRight':
+        this.targetSpherical.theta=Math.min(this.maxAzimuth,this.targetSpherical.theta+0.08);handled=true;break;
+      case 'ArrowUp':
+        this.targetSpherical.phi=Math.max(this.minPolar,this.targetSpherical.phi-0.06);handled=true;break;
+      case 'ArrowDown':
+        this.targetSpherical.phi=Math.min(this.maxPolar,this.targetSpherical.phi+0.06);handled=true;break;
+      case '+':case '=':
+        this.zoomBy(-1.8);handled=true;break;
+      case '-':case '_':
+        this.zoomBy(1.8);handled=true;break;
+      case 'Home':case 'r':case 'R':
+        this.resetView();handled=true;break;
+      case 't':case 'T':case 'd':case 'D':
+        this.focusTable();handled=true;break;
+    }
+    if(handled){event.preventDefault();this.scheduleFrame();}
+  }
   placeLabels() {
     if(this.mode!=='room')return;
     const width=this.host.clientWidth,height=this.host.clientHeight,placed=[];
+    const forward=new T.Vector3();this.camera.getWorldDirection(forward);
     for(const anchor of this.labelAnchors || []) {
       const button=this.stage.querySelector(anchor.selector);if(!button)continue;
       button.classList.add('room-object-anchored');if(!button.offsetWidth)continue;
-      const point=anchor.point.clone().project(this.camera),w=button.offsetWidth,h=button.offsetHeight;
-      const x=Math.max(w/2+12,Math.min(width-w/2-12,(point.x+1)*width/2+anchor.dx));
-      let y=Math.max(123,Math.min(height-80-h,(1-point.y)*height/2+anchor.dy));
+      const point=anchor.point.clone();
+      const toAnchor=point.clone().sub(this.camera.position);
+      if(toAnchor.dot(forward)<=0.3){
+        button.style.opacity='0';button.style.pointerEvents='none';continue;
+      }
+      const projected=point.project(this.camera);
+      if(projected.z>1||projected.x<-1.15||projected.x>1.15||projected.y<-1.15||projected.y>1.15){
+        button.style.opacity='0';button.style.pointerEvents='none';continue;
+      }
+      button.style.opacity='1';button.style.pointerEvents='auto';
+      const w=button.offsetWidth,h=button.offsetHeight;
+      const x=Math.max(w/2+12,Math.min(width-w/2-12,(projected.x+1)*width/2+anchor.dx));
+      let y=Math.max(123,Math.min(height-80-h,(1-projected.y)*height/2+anchor.dy));
       for(const previous of placed) {
         const overlaps=x-w/2<previous.right+8 && x+w/2>previous.left-8 && y<previous.bottom+8 && y+h>previous.top-8;
         if(overlaps)y=anchor.dy<0 ? previous.top-h-8 : previous.bottom+8;
@@ -208,18 +467,40 @@ export class StudyRoom {
   }
   pose(mode,animated=true) {
     if(this.disposed)return;this.mode=mode;this.tween?.kill();
+    cancelAnimationFrame(this.animFrameId);this.animFrameId=null;
     const mobile=this.camera.aspect<.85;
-    const pos=mode==='shelf' ? {x:3,y:2.7,z:mobile?9.6:5.3} : {x:mobile?10.2:9.1,y:mobile?8.5:6.6,z:mobile?17.8:12.7};
-    const target=mode==='shelf'?{x:3,y:2.6,z:-3.0}:{x:0,y:2.0,z:-.55};
-    if(mode==='room' && !mobile){const frame=Math.max(1,1.45/this.camera.aspect);for(const key of ['x','y','z'])pos[key]=target[key]+(pos[key]-target[key])*frame;}
-    if(!animated||reduced()){this.camera.position.set(pos.x,pos.y,pos.z);this.look.set(target.x,target.y,target.z);this.render();return;}
-    this.tween=T.gsap.timeline({onUpdate:()=>this.render()});
-    this.tween.to(this.camera.position,{...pos,duration:1.05,ease:'power2.inOut'},0).to(this.look,{...target,duration:1.05,ease:'power2.inOut'},0);
+    if(mode==='shelf'){
+      const pos={x:3,y:2.7,z:mobile?9.6:5.3};
+      const target={x:3,y:2.6,z:-3.0};
+      if(!animated||reduced()){this.camera.position.set(pos.x,pos.y,pos.z);this.look.set(target.x,target.y,target.z);this.render();return;}
+      this.tween=T.gsap.timeline({onUpdate:()=>this.render()});
+      this.tween.to(this.camera.position,{...pos,duration:1.05,ease:'power2.inOut'},0).to(this.look,{...target,duration:1.05,ease:'power2.inOut'},0);
+    } else {
+      this.panOffset.set(0,0,0);this.targetPanOffset.set(0,0,0);
+      const pos={x:mobile?10.2:9.1,y:mobile?8.5:6.6,z:mobile?17.8:12.7};
+      const target={x:0,y:2.0,z:-.55};
+      if(!mobile){const frame=Math.max(1,1.45/this.camera.aspect);for(const key of ['x','y','z'])pos[key]=target[key]+(pos[key]-target[key])*frame;}
+      const dx=pos.x-target.x, dy=pos.y-target.y, dz=pos.z-target.z;
+      const r=Math.hypot(dx,dy,dz);
+      this.defaultDistance=r;
+      this.spherical.radius=this.targetSpherical.radius=r;
+      this.spherical.phi=this.targetSpherical.phi=Math.acos(Math.max(-1,Math.min(1,dy/r)));
+      this.spherical.theta=this.targetSpherical.theta=Math.atan2(dx,dz);
+      if(!animated||reduced()){this.camera.position.set(pos.x,pos.y,pos.z);this.look.set(target.x,target.y,target.z);this.render();return;}
+      this.tween=T.gsap.timeline({onUpdate:()=>this.render()});
+      this.tween.to(this.camera.position,{...pos,duration:1.05,ease:'power2.inOut'},0).to(this.look,{...target,duration:1.05,ease:'power2.inOut'},0);
+    }
   }
   render() {if(this.disposed||this.host.clientWidth<2)return;this.camera.lookAt(this.look);this.renderer.render(this.scene,this.camera);this.placeLabels();}
   dispose() {
-    this.disposed=true;this.tween?.kill();this.resizeObserver.disconnect();
-    this.renderer.domElement.removeEventListener('pointerup',this.pickShelf);this.renderer.domElement.removeEventListener('pointermove',this.hoverShelf);
+    this.disposed=true;this.tween?.kill();cancelAnimationFrame(this.animFrameId);this.animFrameId=null;this.resizeObserver.disconnect();
+    this.renderer.domElement.removeEventListener('pointerdown',this.onPointerDown);
+    this.renderer.domElement.removeEventListener('pointermove',this.onPointerMove);
+    this.renderer.domElement.removeEventListener('pointerup',this.onPointerUp);
+    this.renderer.domElement.removeEventListener('pointercancel',this.onPointerUp);
+    this.renderer.domElement.removeEventListener('wheel',this.onWheel);
+    this.renderer.domElement.removeEventListener('dblclick',this.onDblClick);
+    window.removeEventListener('keydown',this.onKeyDown);
     this.scene.traverse(o=>{o.geometry?.dispose();});for(const texture of this.paperTextures)texture.dispose();for(const material of this.paperMaterials)material.dispose();for(const m of this.materials.values())m.dispose();this.renderer.dispose();this.renderer.domElement.remove();
   }
 }

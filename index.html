@@ -240,6 +240,27 @@
             <button type="button" class="room-object room-object-notepad" data-study-view="todo"><i data-lucide="notebook-pen"></i><span><strong>Task notepad</strong><small>Today’s tasks</small></span></button>
             <button type="button" class="room-object room-object-journal" data-study-view="cgpa"><i data-lucide="graduation-cap"></i><span><strong>Grades journal</strong><small>Grades &amp; CGPA</small></span></button>
           </div>
+          <div class="room-nav-toolbar" id="room-nav-toolbar" aria-label="Study room navigation">
+            <button type="button" class="room-nav-btn room-nav-btn-icon" id="btn-zoom-in" title="Zoom in closer to table" aria-label="Zoom in">
+              <i data-lucide="zoom-in"></i>
+            </button>
+            <button type="button" class="room-nav-btn room-nav-btn-icon" id="btn-zoom-out" title="Zoom out" aria-label="Zoom out">
+              <i data-lucide="zoom-out"></i>
+            </button>
+            <span class="room-nav-divider" aria-hidden="true"></span>
+            <button type="button" class="room-nav-btn" id="btn-focus-table" title="Go closer to study table" aria-label="Go closer to study table">
+              <i data-lucide="armchair"></i>
+              <span>Study desk</span>
+            </button>
+            <button type="button" class="room-nav-btn" id="btn-reset-view" title="Reset overview" aria-label="Reset overview">
+              <i data-lucide="rotate-ccw"></i>
+              <span>Overview</span>
+            </button>
+          </div>
+          <div class="room-nav-hint" id="room-nav-hint" aria-hidden="true">
+            <i data-lucide="orbit"></i>
+            <span>Drag to rotate · Scroll to zoom closer to the table</span>
+          </div>
           <div class="room-controls"><button type="button" class="btn btn-secondary" id="btn-return-room" hidden><i data-lucide="arrow-left"></i> Back to the room</button><button type="button" class="room-journal-button" id="btn-room-journal" aria-expanded="false" aria-controls="room-journal"><i data-lucide="notebook-tabs"></i> Study at a glance</button></div>
           <div class="room-floor-note"><span>✳</span> A little space for everything you’re learning.</div>
           <div class="shelf-workspace" id="shelf-workspace" hidden>

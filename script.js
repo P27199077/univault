@@ -4182,6 +4182,8 @@ function setStudyView(mode,animated=true) {
   if(mode==='shelf' && fromRoom)document.getElementById('shelf-workspace').scrollTo({top:0,left:0});
   document.getElementById('shelf-workspace').hidden=mode!=='shelf';
   document.getElementById('room-hotspots').hidden=mode!=='room';
+  const navToolbar=document.getElementById('room-nav-toolbar');if(navToolbar)navToolbar.hidden=mode!=='room';
+  const navHint=document.getElementById('room-nav-hint');if(navHint)navHint.hidden=mode!=='room';
   document.getElementById('btn-return-room').hidden=mode!=='shelf';
   document.getElementById('room-instruction').textContent=mode==='shelf'?'Your semesters, bound together.':'Pick a spot. Make yourself at home.';
   studyRoom?.pose(mode,animated);
@@ -4206,6 +4208,11 @@ function initializeWorkspaceInterface() {
   document.getElementById('dashboard-semester-filter').addEventListener('change', applyDashboardFilters);
   document.getElementById('btn-open-bookshelf').addEventListener('click',()=>setStudyView('shelf'));
   document.getElementById('btn-return-room').addEventListener('click',()=>setStudyView('room'));
+  document.getElementById('btn-zoom-in')?.addEventListener('click', () => studyRoom?.zoomBy(-2.4));
+  document.getElementById('btn-zoom-out')?.addEventListener('click', () => studyRoom?.zoomBy(2.4));
+  document.getElementById('btn-focus-table')?.addEventListener('click', () => studyRoom?.focusTable());
+  document.getElementById('btn-reset-view')?.addEventListener('click', () => studyRoom?.resetView());
+  try { lucide?.createIcons(); } catch {}
   document.getElementById('btn-room-journal').addEventListener('click',()=>{
     const panel=document.getElementById('room-journal');panel.hidden=!panel.hidden;
     document.getElementById('btn-room-journal').setAttribute('aria-expanded',String(!panel.hidden));

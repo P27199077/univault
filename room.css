@@ -5,13 +5,14 @@
 .in-study-room .welcome {display: none;}
 .in-study-room .view-panel {padding-bottom: 0;}
 .room-stage {height: calc(100dvh - 100px);min-height: 610px;max-height: 1000px;position: relative;border: 1px solid #c9b18e;border-radius: 12px;overflow: hidden;background: #e4d3b7;box-shadow: 0 7px 22px #60432812;isolation: isolate;}
-.room-canvas-wrap {position: absolute;inset: 0;z-index: 0;}
-.room-canvas-wrap canvas {width: 100%;height: 100%;display: block;}
+.room-canvas-wrap {position: absolute;inset: 0;z-index: 0;cursor: grab;touch-action: none;}
+.room-canvas-wrap canvas {width: 100%;height: 100%;display: block;touch-action: none;}
+.room-canvas-wrap.is-dragging {cursor: grabbing !important;}
 .room-title {position: absolute;left: 30px;top: 25px;z-index: 2;pointer-events: none;}
 .room-title .eyebrow {font-size: 8px;color: #916a43;}
 .room-title h2 {font: 400 33px/1.2 var(--font-display);letter-spacing: -1px;color: #5b402b;}
 .room-title p {font-size: 11px;color: #8b7255;margin-top: 9px;}
-.room-object {position: absolute;display: flex;align-items: center;gap: 9px;background: #fff6e3eb;backdrop-filter: blur(6px);color: #6d4e30;border: 1px solid #c4a375;box-shadow: 0 4px 18px #3c291b20;padding: 10px 13px;border-radius: 7px;cursor: pointer;text-align: left;transition: transform .2s ease,box-shadow .2s ease;z-index: 3;}
+.room-object {position: absolute;display: flex;align-items: center;gap: 9px;background: #fff6e3eb;backdrop-filter: blur(6px);color: #6d4e30;border: 1px solid #c4a375;box-shadow: 0 4px 18px #3c291b20;padding: 10px 13px;border-radius: 7px;cursor: pointer;text-align: left;transition: transform .2s ease,box-shadow .2s ease,opacity .25s ease;z-index: 3;}
 .room-object:hover {transform: translateY(-4px);box-shadow: 0 6px 20px #3c291b35;background: #fff8e9;}
 .room-object > svg {width: 20px;height: 20px;stroke-width: 1.4;flex-shrink: 0;}
 .room-object strong {display: block;font: 500 13px var(--font-display);}
@@ -22,6 +23,21 @@
 .room-object-notepad {top: 69%;left: 23%;}
 .room-object-journal {top: 72%;right: 10%;}
 .room-object-shelf::after {content: '';position: absolute;bottom: -18px;left: 50%;height: 17px;border-left: 1px solid #9c764e;}
+
+/* Rotatory and zoom navigation controls */
+.room-nav-toolbar {position: absolute;top: 25px;right: 25px;z-index: 6;display: flex;align-items: center;gap: 5px;background: #fff6e3eb;backdrop-filter: blur(8px);-webkit-backdrop-filter: blur(8px);border: 1px solid #c4a375;border-radius: 9px;padding: 5px 7px;box-shadow: 0 4px 18px #3c291b20;transition: opacity .25s ease,transform .25s ease;}
+.room-stage[data-view='shelf'] .room-nav-toolbar {display: none !important;}
+.room-nav-btn {display: inline-flex;align-items: center;justify-content: center;gap: 6px;background: transparent;border: 1px solid transparent;border-radius: 6px;padding: 6px 9px;color: #6d4e30;font: 500 11px var(--font-display);cursor: pointer;transition: all .18s ease;white-space: nowrap;}
+.room-nav-btn:hover {background: #f4e3c6;border-color: #baa079;color: #4b321c;transform: translateY(-1px);}
+.room-nav-btn:active {transform: translateY(0);}
+.room-nav-btn svg {width: 15px;height: 15px;stroke-width: 1.8;flex-shrink: 0;}
+.room-nav-btn-icon {padding: 6px 7px;}
+.room-nav-divider {width: 1px;height: 18px;background: #d8c29d;margin: 0 2px;}
+
+.room-nav-hint {position: absolute;bottom: 25px;left: 50%;transform: translateX(-50%);z-index: 4;pointer-events: none;background: #f8eddae6;backdrop-filter: blur(6px);-webkit-backdrop-filter: blur(6px);border: 1px solid #cbb28d;border-radius: 20px;padding: 6px 14px;font-size: 10px;color: #795736;letter-spacing: .2px;box-shadow: 0 4px 12px #3c291b15;display: flex;align-items: center;gap: 7px;opacity: .95;transition: opacity .4s ease,transform .4s ease;}
+.room-nav-hint svg {width: 14px;height: 14px;color: #a77842;}
+.room-nav-hint.dismissed {opacity: 0;transform: translate(-50%,8px);pointer-events: none;}
+.room-stage[data-view='shelf'] .room-nav-hint {display: none !important;}
 .room-controls {position: absolute;bottom: 25px;left: 25px;right: 25px;z-index: 5;display: flex;align-items: center;gap: 12px;justify-content: space-between;}
 .room-journal-button {display: flex;align-items: center;gap: 7px;background: #f8eddaeb;border: 1px solid #c5aa81;border-radius: 6px;padding: 9px 12px;color: #7c5b38;font-size: 10px;cursor: pointer;margin-left: auto;}
 .room-journal-button svg {width: 16px;height: 16px;}
@@ -176,6 +192,10 @@
   .room-object-planner {left: 13px;top: 43%;}
   .room-object-notepad {left: 16px;top: 63%;}
   .room-object-journal {right: 13px;top: 77%;}
+  .room-nav-toolbar {top: 70px;right: 13px;padding: 3px 5px;gap: 3px;}
+  .room-nav-btn {padding: 5px 6px;font-size: 10px;}
+  .room-nav-btn span {display: none;}
+  .room-nav-hint {bottom: 58px;font-size: 9px;padding: 4px 10px;max-width: 260px;text-align: center;}
   .room-floor-note {left: 18px;bottom: 73px;max-width: 230px;font-size: 10px;}
   .room-controls {bottom: 17px;left: 14px;right: 14px;gap: 8px;}
   .room-controls .btn {font-size: 9px;min-height: 35px;padding: 8px;}
