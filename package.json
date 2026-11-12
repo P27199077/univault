@@ -1,0 +1,18 @@
+{
+  "name": "univault",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "postinstall": "node scripts/vendor-supabase.mjs",
+    "test": "node --test tests/*.test.js",
+    "check": "node --check script.js && node --check backend.js",
+    "start": "python3 -m http.server 3000 --bind 127.0.0.1"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.119.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

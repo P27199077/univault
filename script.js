@@ -1,3 +1,14 @@
+import {createBackend, WORKSPACE_KEYS, validateSnapshot} from './backend.js';
+
+const config = window.UNIVAULT_CONFIG || {};
+const backendClient = config.supabaseUrl && config.supabasePublishableKey && window.supabase
+  ? window.supabase.createClient(config.supabaseUrl, config.supabasePublishableKey, {auth:{storageKey:'univault-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}})
+  : null;
+let lastCloudStatus = {state:'local',message:'Saved on this device only'};
+const backend = createBackend({client:backendClient,storage:window.localStorage,onStatus:updateBackendStatus});
+const workspaceStorage = backend.workspaceStorage;
+let authInitialized = false;
+
 // UniVault Database and State Management Script
 
 // ================= CONSTANTS & STATE =================
@@ -13,12 +24,12 @@ let state = {
 
 // Colors palette for courses
 const ACCENT_COLORS = {
-  purple: '#a855f7',
-  indigo: '#6366f1',
-  blue: '#3b82f6',
-  emerald: '#10b981',
-  amber: '#f59e0b',
-  rose: '#f43f5e'
+  purple: '#8265ad',
+  indigo: '#5473b8',
+  blue: '#347fb0',
+  emerald: '#24856e',
+  amber: '#b98025',
+  rose: '#bf6475'
 };
 
 // UI DOM references
@@ -28,59 +39,24 @@ let activeDrawerTab = 'tab-materials';
 let draggedCourseId = null;
 let activeThemeColor = 'indigo';
 
-// ================= MOCK BACKEND DATABASE / API ENGINE =================
-// Swap these helper functions out when connecting to your backend database!
-
-async function dbRegisterUser(username, password) {
-  await new Promise(r => setTimeout(r, 250)); // simulate latency
-  const users = JSON.parse(localStorage.getItem('univault_users') || '[]');
-  if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
-    throw new Error("Username is already taken");
+// ================= ACCOUNT SESSION =================
+async function initAuth() {
+  if (!authInitialized) {
+    try {await backend.initialize(); authInitialized = true;}
+    catch (error) {showAuthAlert(error.message);}
   }
-  users.push({ username, password });
-  localStorage.setItem('univault_users', JSON.stringify(users));
-  return { success: true, username };
-}
-
-async function dbLoginUser(username, password) {
-  await new Promise(r => setTimeout(r, 250)); // simulate latency
-  const users = JSON.parse(localStorage.getItem('univault_users') || '[]');
-  const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
-  if (!user || user.password !== password) {
-    throw new Error("Invalid username or password");
-  }
-  return { success: true, username: user.username };
-}
-
-function seedDefaultUser() {
-  const users = JSON.parse(localStorage.getItem('univault_users') || '[]');
-  if (users.length === 0) {
-    users.push({ username: 'tanisha', password: '123' });
-    localStorage.setItem('univault_users', JSON.stringify(users));
-  }
-}
-
-function initAuth() {
-  // Preseed default user account if database is empty
-  seedDefaultUser();
-
-  const session = localStorage.getItem('univault_session');
-  const loginContainer = document.getElementById('login-container');
-  const appContainer = document.querySelector('.app-container');
-  
-  if (session) {
-    // Logged in
-    if (loginContainer) loginContainer.classList.add('hidden');
-    if (appContainer) appContainer.style.display = 'flex';
-    
-    // Populate username details
-    document.getElementById('sidebar-username').innerText = session;
-    document.getElementById('sidebar-user-avatar').innerText = session[0].toUpperCase();
-  } else {
-    // Not logged in
-    if (loginContainer) loginContainer.classList.remove('hidden');
-    if (appContainer) appContainer.style.display = 'none';
-  }
+  const guest = sessionStorage.getItem('univault-guest') === 'true';
+  const signedIn = backend.signedIn || guest;
+  document.getElementById('login-container').classList.toggle('hidden', signedIn);
+  document.querySelector('.app-container').style.display = signedIn ? 'flex' : 'none';
+  document.getElementById('cloud-unconfigured').hidden = backend.configured;
+  document.getElementById('form-signin').hidden = !backend.configured;
+  document.querySelector('#panel-signin .auth-switch').hidden = !backend.configured;
+  const name = backend.user?.email || 'On this device';
+  document.getElementById('sidebar-username').textContent = name;
+  document.getElementById('sidebar-user-avatar').textContent = backend.user ? name[0].toUpperCase() : 'U';
+  document.querySelector('.user-role').textContent = backend.signedIn ? 'Personal account' : 'Local workspace';
+  updateBackendStatus(lastCloudStatus);
 }
 
 function showAuthAlert(text, isSuccess = false) {
@@ -105,6 +81,7 @@ function hideAuthAlert() {
 // ================= INDEXEDDB ENGINE =================
 function initDB() {
   return new Promise((resolve, reject) => {
+    if (backend.signedIn) {resolve(); return;}
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     
     request.onupgradeneeded = (event) => {
@@ -128,6 +105,7 @@ function initDB() {
 }
 
 function storeFile(fileRecord) {
+  if (backend.signedIn) return backend.storeFile(fileRecord);
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
@@ -139,6 +117,7 @@ function storeFile(fileRecord) {
 }
 
 function deleteFile(fileId) {
+  if (backend.signedIn) return backend.deleteFile(fileId);
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
@@ -150,6 +129,7 @@ function deleteFile(fileId) {
 }
 
 function getFilesByCourse(courseId) {
+  if (backend.signedIn) return Promise.resolve(backend.listFiles(courseId));
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], 'readonly');
     const store = transaction.objectStore(STORE_NAME);
@@ -162,6 +142,7 @@ function getFilesByCourse(courseId) {
 }
 
 function getAllFiles() {
+  if (backend.signedIn) return Promise.resolve(backend.listFiles());
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], 'readonly');
     const store = transaction.objectStore(STORE_NAME);
@@ -174,133 +155,32 @@ function getAllFiles() {
 
 // ================= STATE MANAGEMENT =================
 function loadStateFromStorage() {
-  const storedSemesters = localStorage.getItem('univault_semesters');
-  const storedCourses = localStorage.getItem('univault_courses');
+  const storedSemesters = workspaceStorage.getItem('univault_semesters');
+  const storedCourses = workspaceStorage.getItem('univault_courses');
+  state.tasks = JSON.parse(workspaceStorage.getItem('univault_tasks') || '[]');
   
   if (storedSemesters && storedCourses) {
     state.semesters = JSON.parse(storedSemesters);
     state.courses = JSON.parse(storedCourses);
   } else {
-    // If first load, load mock data so the app looks complete and beautiful
-    initializeMockData();
+    state.semesters = [];
+    state.courses = [];
   }
 }
 
 function saveStateToStorage() {
-  localStorage.setItem('univault_semesters', JSON.stringify(state.semesters));
-  localStorage.setItem('univault_courses', JSON.stringify(state.courses));
+  workspaceStorage.setItem('univault_semesters', JSON.stringify(state.semesters));
+  workspaceStorage.setItem('univault_courses', JSON.stringify(state.courses));
   
-  if (localStorage.getItem('cloud_sync_enabled') === 'true') {
-    syncStateToCloud();
-  }
+  workspaceStorage.setItem('univault_tasks',JSON.stringify(state.tasks || []));
 }
 
-function initializeMockData() {
-  state.semesters = [
-    { id: 'sem-1', name: 'Fall 2025' },
-    { id: 'sem-2', name: 'Spring 2026' },
-    { id: 'sem-3', name: 'Fall 2026' }
-  ];
-  
-  state.courses = [
-    {
-      id: 'course-1',
-      name: 'Intro to Computer Science',
-      code: 'CS-101',
-      prof: 'Dr. Alan Turing',
-      semesterId: 'sem-1',
-      targetGrade: 'A+',
-      themeColor: 'indigo',
-      notes: '## CS-101 Introduction\nThis is a foundational course in computing. Topics include logic gates, binary math, python basics, algorithms, and computing history.\n\n### Grading Policies:\n- Assignments: 40%\n- Midterm: 30%\n- Final Exam: 30%\n\nNeed to study Turing Machines for final extra credit!',
-      checklist: [
-        { id: 'chk-1', text: 'Submit Binary Calculator Project', completed: true },
-        { id: 'chk-2', text: 'Complete Python loops quiz', completed: true },
-        { id: 'chk-3', text: 'Revise Logic Gates theory', completed: true }
-      ]
-    },
-    {
-      id: 'course-2',
-      name: 'Data Structures & Algorithms',
-      code: 'CS-201',
-      prof: 'Dr. Grace Hopper',
-      semesterId: 'sem-2',
-      targetGrade: 'A',
-      themeColor: 'purple',
-      notes: '## DSA Study Guide\nFocus on understanding time complexity analysis (Big-O).\n\n### Core Topics:\n- Arrays and Linked Lists\n- Stacks and Queues\n- Binary Trees and Heaps\n- Sorting Algorithms (Quick, Merge, Heap)\n- Graphs & DFS/BFS traversal\n\n### Office Hours:\n- Tuesdays at 2 PM inside Hopper Hall.',
-      checklist: [
-        { id: 'chk-4', text: 'Binary Search Tree coding assignment', completed: true },
-        { id: 'chk-5', text: 'Graph traversals visual simulation', completed: false },
-        { id: 'chk-6', text: 'Mock test under time constraint', completed: false }
-      ]
-    },
-    {
-      id: 'course-3',
-      name: 'Web Application Development',
-      code: 'CS-302',
-      prof: 'Prof. Tim Berners-Lee',
-      semesterId: 'sem-3',
-      targetGrade: 'A+',
-      themeColor: 'emerald',
-      notes: '## Web App Project Plans\nBuilding a course organizer called UniVault.\n\n### Dev Stack:\n- HTML5 Semantic Markup\n- Modern CSS Grid & Flexbox\n- HSL Color Palette and Glassmorphism\n- Vanilla JavaScript + IndexedDB local storage\n\nMust implement smooth CSS transitions and Drag & Drop API!',
-      checklist: [
-        { id: 'chk-7', text: 'Wireframe user interface layers', completed: true },
-        { id: 'chk-8', text: 'Write styling stylesheet rules', completed: true },
-        { id: 'chk-9', text: 'Add IndexedDB file persist storage logic', completed: false },
-        { id: 'chk-10', text: 'Record walkthrough demo animation', completed: false }
-      ]
-    }
-  ];
-  
-  saveStateToStorage();
-}
-
-// Store default files in IndexedDB on first load
-async function initializeMockFiles() {
-  const initialized = localStorage.getItem('univault_files_initialized');
-  if (initialized) return;
-
-  const mockFiles = [
-    {
-      id: 'file-mock-1',
-      courseId: 'course-1',
-      name: 'CS101_Syllabus.txt',
-      type: 'handouts',
-      mimeType: 'text/plain',
-      size: 512,
-      uploadedAt: new Date().toISOString(),
-      content: new Blob([
-        `CS-101: INTRO TO COMPUTER SCIENCE\n=================================\n\nSemester: Fall 2025\nProfessor: Dr. Alan Turing\nOffice Room: Turing Lab, Room 402\n\nCourse Schedule:\n- Week 1-3: Hardware Basics & Logic Gates\n- Week 4-6: Programming Concepts in Python\n- Week 7: Midterm Exam\n- Week 8-11: Basic Algorithms (Search, Sort)\n- Week 12-14: Theory of Computation & AI Intro\n- Week 15: Final Exams`
-      ], { type: 'text/plain' })
-    },
-    {
-      id: 'file-mock-2',
-      courseId: 'course-2',
-      name: 'DSA_Lecture_01_Introduction.txt',
-      type: 'slides',
-      mimeType: 'text/plain',
-      size: 614,
-      uploadedAt: new Date().toISOString(),
-      content: new Blob([
-        `LECTURE 01: INTRODUCTION TO ALGORITHMS\n======================================\n\nWhat is an Algorithm?\nA set of well-defined instructions to solve a specific problem.\n\nKey Attributes of Good Algorithms:\n1. Finiteness (must terminate)\n2. Definiteness (each step is clear)\n3. Input & Output\n4. Effectiveness (feasible)\n5. Efficiency (optimal CPU & memory)\n\nAnalyzing Complexity:\nWe measure algorithms using Big-O notation for time and space.\n- Constant time: O(1)\n- Logarithmic time: O(log n)\n- Linear time: O(n)\n- Quadratic time: O(n^2)\n- Exponential time: O(2^n)`
-      ], { type: 'text/plain' })
-    }
-  ];
-
-  try {
-    for (const f of mockFiles) {
-      await storeFile(f);
-    }
-    localStorage.setItem('univault_files_initialized', 'true');
-  } catch (err) {
-    console.error("Failed to populate mock files", err);
-  }
-}
-
-// ================= DYNAMIC RENDERING LAYERS =================
 async function renderBoard() {
   const container = document.getElementById('semester-board');
   if (!container) return;
   container.innerHTML = '';
+  renderDashboardOverview();
+  syncDashboardSemesterFilter();
   
   if (state.semesters.length === 0) {
     container.innerHTML = `
@@ -345,7 +225,12 @@ async function renderBoard() {
     const titleContainer = document.createElement('div');
     titleContainer.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; cursor: pointer;';
     
-    const checkBtn = document.createElement('span');
+    const checkBtn = document.createElement('button');
+    checkBtn.type = 'button';
+    checkBtn.className = 'semester-complete';
+    checkBtn.setAttribute('aria-label', `${sem.completed ? 'Mark ongoing' : 'Mark complete'}: ${sem.name}`);
+    checkBtn.setAttribute('aria-pressed', String(!!sem.completed));
+    checkBtn.title = sem.completed ? 'Mark semester ongoing' : 'Mark semester complete';
     checkBtn.style.cssText = 'display: flex; align-items: center; justify-content: center;';
     if (sem.completed) {
       checkBtn.innerHTML = `<i data-lucide="check-circle" style="color: var(--color-emerald); width: 18px; height: 18px;"></i>`;
@@ -353,7 +238,7 @@ async function renderBoard() {
       checkBtn.innerHTML = `<i data-lucide="circle" style="color: var(--text-secondary); width: 18px; height: 18px; opacity: 0.6;"></i>`;
     }
     
-    titleContainer.addEventListener('click', () => {
+    checkBtn.addEventListener('click', () => {
       const hasPending = semCourses.some(c => !c.targetGrade || c.targetGrade.toUpperCase() === 'PENDING' || c.targetGrade.toUpperCase() === 'ONGOING');
       
       if (!sem.completed) {
@@ -387,8 +272,11 @@ async function renderBoard() {
     }
     
     // Create hover edit icon for renaming
-    const editIcon = document.createElement('span');
-    editIcon.className = 'action-icon';
+    const editIcon = document.createElement('button');
+    editIcon.type = 'button';
+    editIcon.className = 'action-icon semester-rename';
+    editIcon.setAttribute('aria-label', `Rename ${sem.name}`);
+    editIcon.hidden = !!sem.completed;
     editIcon.style.cssText = 'opacity: 0; margin-left: 0.25rem; font-size: 0.75rem; cursor: pointer; transition: opacity 0.2s;';
     editIcon.innerHTML = `<i data-lucide="edit-3" style="width: 12px; height: 12px;"></i>`;
     
@@ -406,7 +294,7 @@ async function renderBoard() {
       input.type = 'text';
       input.value = sem.name;
       input.className = 'form-control';
-      input.style.cssText = 'font-size: 1rem; font-weight: 700; padding: 2px 6px; height: auto; width: 140px; margin: 0; background: rgba(255,255,255,0.05); color: white; border: 1px solid var(--border-color); border-radius: 4px;';
+      input.style.cssText = 'font-size: 1rem; font-weight: 700; padding: 2px 6px; height: auto; width: 140px; margin: 0; background: rgba(255,255,255,0.05); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px;';
       
       titleContainer.replaceChild(input, title);
       editIcon.style.display = 'none';
@@ -492,6 +380,7 @@ async function renderBoard() {
   }
   
   setupDragAndDrop();
+  applyDashboardFilters();
   lucide.createIcons();
 }
 
@@ -501,6 +390,8 @@ async function buildCourseCard(course) {
   card.id = `course-card-${course.id}`;
   card.dataset.id = course.id;
   card.draggable = true;
+  card.setAttribute('role', 'group');
+  card.setAttribute('aria-label', course.name);
   
   // Set theme color background bar
   const themeBar = document.createElement('div');
@@ -533,8 +424,10 @@ async function buildCourseCard(course) {
   }
   card.appendChild(codeRow);
   
-  const name = document.createElement('div');
+  const name = document.createElement('button');
+  name.type = 'button';
   name.className = 'course-name';
+  name.setAttribute('aria-label', `Open ${course.name}`);
   name.innerText = course.name;
   card.appendChild(name);
   
@@ -544,7 +437,7 @@ async function buildCourseCard(course) {
   
   const prof = document.createElement('span');
   prof.className = 'course-professor';
-  prof.innerHTML = `<i data-lucide="user"></i> ${course.prof || 'Unknown Professor'}`;
+  prof.innerHTML = `<i data-lucide="user"></i> ${escapeHtml(course.prof || 'Unknown Professor')}`;
   
   // Count of materials uploaded for this course
   const files = await getFilesByCourse(course.id);
@@ -578,6 +471,10 @@ async function buildCourseCard(course) {
     confirmDeleteCourse(course.id);
   });
   
+  const openLabel = document.createElement('span');
+  openLabel.className = 'course-open-label';
+  openLabel.innerHTML = 'Open workspace <i data-lucide="arrow-up-right"></i>';
+  actions.appendChild(openLabel);
   actions.appendChild(editBtn);
   actions.appendChild(deleteBtn);
   card.appendChild(actions);
@@ -684,8 +581,8 @@ async function openCourseDetail(courseId) {
   badge.style.backgroundColor = `rgba(${hexToRgb(ACCENT_COLORS[course.themeColor])}, 0.15)`;
   badge.style.color = ACCENT_COLORS[course.themeColor];
   
-  document.getElementById('detail-course-prof').innerHTML = `<i data-lucide="user"></i> ${course.prof || 'Unknown Professor'}`;
-  document.getElementById('detail-course-grade').innerHTML = `<i data-lucide="award"></i> Target Grade: ${course.targetGrade || 'N/A'}`;
+  document.getElementById('detail-course-prof').innerHTML = `<i data-lucide="user"></i> ${escapeHtml(course.prof || 'Unknown Professor')}`;
+  document.getElementById('detail-course-grade').innerHTML = `<i data-lucide="award"></i> Target Grade: ${escapeHtml(course.targetGrade || 'N/A')}`;
   
   // Notepad contents
   document.getElementById('detail-notes-textarea').value = course.notes || '';
@@ -825,7 +722,10 @@ function renderCourseDetailChecklist() {
     const el = document.createElement('div');
     el.className = `req-item ${item.completed ? 'completed' : ''}`;
     
-    const chk = document.createElement('div');
+    const chk = document.createElement('button');
+    chk.type = 'button';
+    chk.setAttribute('aria-label', item.text);
+    chk.setAttribute('aria-pressed', String(!!item.completed));
     chk.className = 'req-checkbox';
     chk.innerHTML = `<i data-lucide="check" style="width: 12px; height: 12px;"></i>`;
     
@@ -835,6 +735,7 @@ function renderCourseDetailChecklist() {
     
     const delBtn = document.createElement('button');
     delBtn.className = 'action-icon delete';
+    delBtn.setAttribute('aria-label', `Delete task: ${item.text}`);
     delBtn.style.marginLeft = 'auto';
     delBtn.innerHTML = `<i data-lucide="trash-2"></i>`;
     delBtn.addEventListener('click', (e) => {
@@ -923,50 +824,33 @@ function handleNotesInput() {
 // ================= MATERIAL UPLOAD CONTROLLERS =================
 async function handleFileUpload(filesList, type) {
   if (!activeCourseId || filesList.length === 0) return;
-  
-  if (type === 'handouts') {
-    // Handouts are uploaded only once; delete any old ones to replace it
-    try {
-      const files = await getFilesByCourse(activeCourseId);
-      const existingHandouts = files.filter(f => f.type === 'handouts');
-      for (const f of existingHandouts) {
-        await deleteFile(f.id);
-      }
-    } catch (err) {
-      console.error("Failed to clean up old handouts:", err);
-    }
-  }
-  
-  // If handouts, only keep the last file in the list if multiple files were uploaded
-  const filesToUpload = type === 'handouts' ? [filesList[filesList.length - 1]] : filesList;
-  
+  const courseId = activeCourseId;
+  const existingHandouts = type === 'handouts' ? (await getFilesByCourse(courseId)).filter(file => file.type === 'handouts') : [];
+  const filesToUpload = type === 'handouts' ? [filesList[filesList.length - 1]] : Array.from(filesList);
+  let uploaded = 0;
   for (const file of filesToUpload) {
-    const id = `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const record = {
-      id: id,
-      courseId: activeCourseId,
-      name: file.name,
-      type: type,
-      mimeType: file.type || 'application/octet-stream',
-      size: file.size,
-      uploadedAt: new Date().toISOString(),
-      content: file
-    };
-    
+    const record = {id:`file-${crypto.randomUUID()}`,courseId,name:file.name,type,mimeType:file.type || 'application/octet-stream',size:file.size,uploadedAt:new Date().toISOString(),content:file};
     try {
       await storeFile(record);
-    } catch (err) {
-      showToast(`Error storing file: ${file.name}`, 'error');
-      console.error(err);
+      uploaded++;
+    } catch (error) {showToast(`Could not upload ${file.name}: ${error.message || 'Please try again.'}`,'error');}
+  }
+  // A replacement is only removed once its new handout has safely uploaded.
+  if (uploaded && type === 'handouts') {
+    for (const file of existingHandouts) {
+      try {await deleteFile(file.id);} catch {showToast('The new handout is saved; an older copy could not be removed.','error');}
     }
   }
-  
-  await renderCourseDetailFiles();
+  if (activeCourseId === courseId) await renderCourseDetailFiles();
   await renderMetrics();
+  if (uploaded) showToast(`${uploaded} ${uploaded === 1 ? 'file saved' : 'files saved'}${backend.signedIn ? ' to your private vault' : ' on this device'}.`);
 }
 
 // Download dynamic file records from IndexedDB
-function downloadFileRecord(fileRecord) {
+async function downloadFileRecord(fileRecord) {
+  try {
+    if (!fileRecord.content) fileRecord = {...fileRecord,content:await backend.downloadFile(fileRecord)};
+  } catch (error) {showToast('Could not download this file. Please reconnect and try again.','error'); return;}
   const url = URL.createObjectURL(fileRecord.content);
   const a = document.createElement('a');
   a.href = url;
@@ -980,7 +864,10 @@ function downloadFileRecord(fileRecord) {
 let activePreviewUrl = null;
 
 // Preview Modal popup handler
-function openPreviewModal(fileRecord) {
+async function openPreviewModal(fileRecord) {
+  try {
+    if (!fileRecord.content) fileRecord = {...fileRecord,content:await backend.downloadFile(fileRecord)};
+  } catch (error) {showToast('Could not load this file. Please reconnect and try again.','error'); return;}
   if (activePreviewUrl) {
     URL.revokeObjectURL(activePreviewUrl);
     activePreviewUrl = null;
@@ -1039,8 +926,8 @@ function openPreviewModal(fileRecord) {
         <div class="preview-placeholder-icon">
           <i data-lucide="${getFileIconName(fileRecord.type)}"></i>
         </div>
-        <div style="font-size: 1.1rem; font-weight: 600;">${fileRecord.name}</div>
-        <div style="font-size: 0.85rem; color: var(--text-secondary);">${formatBytes(fileRecord.size)} - ${fileRecord.mimeType}</div>
+        <div style="font-size: 1.1rem; font-weight: 600;">${escapeHtml(fileRecord.name)}</div>
+        <div style="font-size: 0.85rem; color: var(--text-secondary);">${formatBytes(fileRecord.size)} - ${escapeHtml(fileRecord.mimeType)}</div>
         <div style="margin-top: 1rem; color: var(--text-muted); font-size: 0.85rem;">
           Previews are not supported for this file format in-browser. Please download to view.
         </div>
@@ -1238,13 +1125,17 @@ function renderThemeSelectors() {
   container.innerHTML = '';
   
   Object.keys(ACCENT_COLORS).forEach(col => {
-    const el = document.createElement('div');
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.setAttribute('aria-label', `${col} course colour`);
+    el.setAttribute('aria-pressed', String(col === activeThemeColor));
     el.className = `theme-radio ${col === activeThemeColor ? 'selected' : ''}`;
     el.style.backgroundColor = ACCENT_COLORS[col];
     el.dataset.color = col;
     
     el.addEventListener('click', () => {
-      document.querySelectorAll('.theme-radio').forEach(r => r.classList.remove('selected'));
+      document.querySelectorAll('.theme-radio').forEach(r => { r.classList.remove('selected'); r.setAttribute('aria-pressed', 'false'); });
+      el.setAttribute('aria-pressed', 'true');
       el.classList.add('selected');
       activeThemeColor = col;
       document.getElementById('course-theme-input').value = col;
@@ -1323,22 +1214,19 @@ function handleAddCourse(e) {
   closeCourseModal();
 }
 
-function confirmDeleteSemester(semId) {
+async function confirmDeleteSemester(semId) {
   const coursesInSem = state.courses.filter(c => c.semesterId === semId);
   const message = coursesInSem.length > 0 
     ? `Warning: Deleting this semester will also delete all of its ${coursesInSem.length} courses and files. Continue?`
     : `Are you sure you want to delete this semester?`;
     
   if (confirm(message)) {
-    // Delete courses
-    coursesInSem.forEach(async (c) => {
-      // Clean up files in IndexedDB
-      const files = await getFilesByCourse(c.id);
-      for (const f of files) {
-        await deleteFile(f.id);
+    try {
+      for (const course of coursesInSem) {
+        for (const file of await getFilesByCourse(course.id)) await deleteFile(file.id);
       }
-    });
-    
+    } catch (error) {showToast('Could not remove all files. The semester has been kept so you can try again.','error'); return;}
+
     state.courses = state.courses.filter(c => c.semesterId !== semId);
     state.semesters = state.semesters.filter(s => s.id !== semId);
     
@@ -1364,13 +1252,22 @@ function confirmDeleteCourse(courseId) {
       renderBoard();
       renderMetrics();
       updateGlobalFiltersSelect();
-    });
+    }).catch(() => showToast('Could not delete the course. Please reconnect and try again.','error'));
   }
 }
 
 // Navigation switcher tabs (Sidebar links)
 function handleNavigation(tab) {
   activeTab = tab;
+  closeWorkspaceNavigation();
+  window.scrollTo({top: 0, behavior: 'instant'});
+  document.getElementById('main-content').focus({preventScroll: true});
+  document.getElementById('current-location').textContent = ({dashboard:'Overview', materials:'My materials', calendar:'Calendar', todo:'Today’s tasks', attendance:'Attendance', cgpa:'Grade calculator', timetable:'Timetable', resources:'Useful links', settings:'Settings & backup', 'course-detail':'Course workspace'})[tab] || 'Overview';
+  document.getElementById('page-eyebrow').hidden = tab !== 'dashboard';
+  document.querySelectorAll('.nav-item button').forEach(button => {
+    if (button.id === `nav-${tab}` || (tab === 'course-detail' && button.id === 'nav-dashboard')) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
   
   // Hide main header on course detail view
   const mainHeader = document.querySelector('.main-content > header');
@@ -1405,7 +1302,7 @@ function handleNavigation(tab) {
   if (!addSemBtn || !addCourseBtn) return; // safeguard
   
   if (tab === 'materials') {
-    pageTitle.innerText = 'Material Vault';
+    pageTitle.innerText = 'My materials';
     pageSubtitle.innerText = 'Access all course documents, files, and lectures in one place.';
     addSemBtn.style.display = 'none';
     addCourseBtn.style.display = 'none';
@@ -1426,36 +1323,42 @@ function handleNavigation(tab) {
     addCourseBtn.style.display = 'none';
     if (importBtn) importBtn.style.display = 'none';
     renderCalendar();
+  } else if (tab === 'attendance') {
+    pageTitle.innerText = 'Attendance';
+    pageSubtitle.innerText = 'Attendance tracking and college Excel imports, saved here for later.';
+    addSemBtn.style.display = 'none';
+    addCourseBtn.style.display = 'none';
+    if (importBtn) importBtn.style.display = 'none';
   } else if (tab === 'cgpa') {
-    pageTitle.innerText = "CGPA Calculator";
+    pageTitle.innerText = "Grade calculator";
     pageSubtitle.innerText = 'Track, predict, and project your academic performance across semesters.';
     addSemBtn.style.display = 'none';
     addCourseBtn.style.display = 'none';
     if (importBtn) importBtn.style.display = 'none';
     renderCgpaCalculator();
   } else if (tab === 'timetable') {
-    pageTitle.innerText = "Timetable Planner";
+    pageTitle.innerText = "Timetable";
     pageSubtitle.innerText = 'Design your weekly course schedules, prevent lecture clashes, and export timings.';
     addSemBtn.style.display = 'none';
     addCourseBtn.style.display = 'none';
     if (importBtn) importBtn.style.display = 'none';
     initTimetablePlanner();
   } else if (tab === 'resources') {
-    pageTitle.innerText = "Resources Directory";
+    pageTitle.innerText = "Useful links";
     pageSubtitle.innerText = 'A spreadsheet to store, organize, and edit reference links and descriptions.';
     addSemBtn.style.display = 'none';
     addCourseBtn.style.display = 'none';
     if (importBtn) importBtn.style.display = 'none';
     renderResourcesSpreadsheet();
   } else if (tab === 'settings') {
-    pageTitle.innerText = "Settings & Sync";
+    pageTitle.innerText = "Settings & backup";
     pageSubtitle.innerText = 'Export, backup, and sync your dashboard data across multiple devices.';
     addSemBtn.style.display = 'none';
     addCourseBtn.style.display = 'none';
     if (importBtn) importBtn.style.display = 'none';
   } else {
-    pageTitle.innerText = 'Dashboard';
-    pageSubtitle.innerText = 'Welcome back! Organize your classes, schedules, and materials.';
+    pageTitle.innerText = 'Your semester, sorted.';
+    pageSubtitle.innerText = 'All your courses, materials, and plans. One calm place.';
     addSemBtn.style.display = 'flex';
     addCourseBtn.style.display = 'flex';
     if (importBtn) importBtn.style.display = 'flex';
@@ -1465,7 +1368,7 @@ function handleNavigation(tab) {
 }
 
 // ================= CALENDAR PLANNER MODULE =================
-let calendarEventsList = JSON.parse(localStorage.getItem('calendar_events_list') || '[]');
+let calendarEventsList = JSON.parse(workspaceStorage.getItem('calendar_events_list') || '[]');
 let calendarDays = [];
 
 // Track active month and year state (default to current date)
@@ -1572,7 +1475,7 @@ function toggleTaskCompleted(eventId, dateString) {
     }
     return evt;
   });
-  localStorage.setItem('calendar_events_list', JSON.stringify(calendarEventsList));
+  workspaceStorage.setItem('calendar_events_list', JSON.stringify(calendarEventsList));
   renderCalendar();
 }
 
@@ -1723,7 +1626,7 @@ function renderTodayChecklists(todayStr) {
         titleSpan.textContent = evt.title;
         titleSpan.style.fontWeight = '500';
         titleSpan.style.fontSize = '0.95rem';
-        titleSpan.style.color = 'white';
+        titleSpan.style.color = 'var(--text-primary)';
         leftDiv.appendChild(titleSpan);
         
         li.appendChild(leftDiv);
@@ -1834,7 +1737,7 @@ function renderCalendar() {
   document.getElementById('footer-end-display').textContent = `Ends: ${MONTH_NAMES[currentMonth]} ${calendarDays.filter(d => d.isActive).length}, ${currentYear}`;
 
   // Apply accent theme from localStorage
-  const savedAccent = localStorage.getItem('calendar_accent') || 'indigo';
+  const savedAccent = workspaceStorage.getItem('calendar_accent') || 'indigo';
   setCalendarAccent(savedAccent);
   renderSidebarTagLabels();
 
@@ -1863,8 +1766,8 @@ function renderCalendar() {
     cellHeader.appendChild(numLabel);
 
     // Optional D-Day Countdown
-    const dDayEnabled = localStorage.getItem('calendar_dday_enabled') === 'true';
-    const dDayStr = localStorage.getItem('calendar_dday_date');
+    const dDayEnabled = workspaceStorage.getItem('calendar_dday_enabled') === 'true';
+    const dDayStr = workspaceStorage.getItem('calendar_dday_date');
 
     if (day.isActive && dDayEnabled && dDayStr) {
       const currentDate = new Date(day.dateString + 'T00:00:00');
@@ -1921,9 +1824,11 @@ function renderCalendar() {
       const tagLabel = labels[event.tag] || (event.tag.charAt(0).toUpperCase() + event.tag.slice(1));
       pointer.title = `${event.title} [${tagLabel}]${event.desc ? '\n' + event.desc : ''}`;
 
-      // Check Circle Toggle Box
-      const checkBtn = document.createElement('span');
-      checkBtn.classList.add('event-pointer-check');
+      // Each calendar event has its own accessible completion control.
+      const checkBtn = document.createElement('button');
+      checkBtn.type = 'button';
+      checkBtn.className = 'event-pointer-check';
+      checkBtn.setAttribute('aria-label', `Complete ${event.title}`);
       checkBtn.style.borderColor = `var(--color-${event.tag === 'warm' ? 'amber' : event.tag})`;
       checkBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1980,7 +1885,7 @@ function renderSidebarNotes() {
   if (!list) return;
   list.innerHTML = '';
   
-  const notes = JSON.parse(localStorage.getItem('calendar_general_notes')) || [];
+  const notes = JSON.parse(workspaceStorage.getItem('calendar_general_notes')) || [];
   notes.forEach((note, index) => {
     const li = document.createElement('li');
     li.classList.add('note-item');
@@ -2006,21 +1911,22 @@ function renderSidebarNotes() {
 function addGeneralNote(text) {
   const trimmed = text.trim();
   if (!trimmed) return;
-  const notes = JSON.parse(localStorage.getItem('calendar_general_notes')) || [];
+  const notes = JSON.parse(workspaceStorage.getItem('calendar_general_notes')) || [];
   notes.push(trimmed);
-  localStorage.setItem('calendar_general_notes', JSON.stringify(notes));
+  workspaceStorage.setItem('calendar_general_notes', JSON.stringify(notes));
   renderSidebarNotes();
 }
 
 function deleteGeneralNote(index) {
-  const notes = JSON.parse(localStorage.getItem('calendar_general_notes')) || [];
+  const notes = JSON.parse(workspaceStorage.getItem('calendar_general_notes')) || [];
   notes.splice(index, 1);
-  localStorage.setItem('calendar_general_notes', JSON.stringify(notes));
+  workspaceStorage.setItem('calendar_general_notes', JSON.stringify(notes));
   renderSidebarNotes();
 }
 
 // Shifting theme styles
 function setCalendarAccent(color) {
+  workspaceStorage.setItem('calendar_accent',color);
   const workspace = document.querySelector('.calendar-layout-workspace');
   if (!workspace) return;
   
@@ -2029,7 +1935,7 @@ function setCalendarAccent(color) {
 }
 
 function getCustomTagLabels() {
-  return JSON.parse(localStorage.getItem('calendar_tag_labels') || '{}');
+  return JSON.parse(workspaceStorage.getItem('calendar_tag_labels') || '{}');
 }
 
 function renderSidebarTagLabels() {
@@ -2204,19 +2110,21 @@ function formatBytes(bytes, decimals = 2) {
 // ================= APP INITIALIZATION =================
 window.addEventListener('DOMContentLoaded', async () => {
   // Check auth session
-  initAuth();
+  await initAuth();
   
   loadStateFromStorage();
+  calendarEventsList = JSON.parse(workspaceStorage.getItem('calendar_events_list') || '[]');
   
   try {
     await initDB();
-    await initializeMockFiles();
+    // Existing browser files are preserved for explicit migration into an account.
   } catch (err) {
     console.error("Database initialization failed", err);
   }
   
   await renderBoard();
   await renderMetrics();
+  initializeWorkspaceInterface();
   updateGlobalFiltersSelect();
   
   // Navigation sidebar events
@@ -2224,6 +2132,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('nav-materials').addEventListener('click', () => handleNavigation('materials'));
   document.getElementById('nav-calendar').addEventListener('click', () => handleNavigation('calendar'));
   document.getElementById('nav-todo').addEventListener('click', () => handleNavigation('todo'));
+  document.getElementById('nav-attendance').addEventListener('click', () => handleNavigation('attendance'));
   document.getElementById('nav-cgpa').addEventListener('click', () => handleNavigation('cgpa'));
   document.getElementById('nav-timetable').addEventListener('click', () => handleNavigation('timetable'));
   document.getElementById('nav-resources').addEventListener('click', () => handleNavigation('resources'));
@@ -2252,15 +2161,35 @@ window.addEventListener('DOMContentLoaded', async () => {
   const btnSubmitSync = document.getElementById('btn-submit-sync-code');
   if (btnSubmitSync) btnSubmitSync.addEventListener('click', handleImportSyncCode);
   
-  // Cloud Auto-Sync events
-  const btnGenSyncKey = document.getElementById('btn-generate-sync-key');
-  if (btnGenSyncKey) btnGenSyncKey.addEventListener('click', handleGenerateSyncKey);
-  
-  const btnToggleCloud = document.getElementById('btn-toggle-cloud-sync');
-  if (btnToggleCloud) btnToggleCloud.addEventListener('click', handleToggleCloudSync);
-  
-  initCloudSyncOnLoad();
-  
+  document.getElementById('btn-sync-now').addEventListener('click', async () => {
+    try {
+      persistPendingNotes();
+      await backend.flush();
+      await backend.reloadCloud();
+      await refreshWorkspaceViews();
+    } catch (error) {showToast(error.message || 'Could not sync. Your local changes are safe.','error');}
+  });
+  document.getElementById('btn-reload-cloud').addEventListener('click', async () => {
+    if (!confirm('Load the cloud version? Download a backup first if you want to keep changes made on this device.')) return;
+    try {await backend.reloadCloud(); await refreshWorkspaceViews();}
+    catch (error) {showToast('Could not load the cloud version. Please try again.','error');}
+  });
+  document.getElementById('btn-migrate-local').addEventListener('click', importBrowserWorkspace);
+  document.getElementById('btn-retry-file-import').addEventListener('click', importBrowserWorkspace);
+  document.getElementById('btn-continue-local').addEventListener('click', () => {
+    sessionStorage.setItem('univault-guest','true');
+    window.location.reload();
+  });
+  window.addEventListener('online', () => {if (backend.signedIn) backend.flush().catch(() => {});});
+  window.addEventListener('beforeunload', event => {
+    persistPendingNotes();
+    if (backend.hasPendingChanges) {event.preventDefault(); event.returnValue = '';}
+  });
+  if (backendClient) backendClient.auth.onAuthStateChange(event => {
+    // Schedule outside the SDK callback to avoid locking the auth client.
+    if (event === 'SIGNED_OUT' && backend.user) setTimeout(() => window.location.reload(),0);
+  });
+
   // Timetable setup & action events
   const btnSubmitDegree = document.getElementById('btn-submit-timetable-degree');
   if (btnSubmitDegree) {
@@ -2281,7 +2210,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   const searchInput = document.getElementById('timetable-course-search');
   if (searchInput) {
     searchInput.addEventListener('input', () => {
-      const degree = localStorage.getItem('timetable_degree');
+      const degree = workspaceStorage.getItem('timetable_degree');
       if (degree) renderTimetableWorkspace(degree);
     });
   }
@@ -2351,10 +2280,10 @@ window.addEventListener('DOMContentLoaded', async () => {
         const parsedCourses = await parseTimetablePDFFile(file);
         
         if (parsedCourses.length > 0) {
-          localStorage.setItem('custom_timetable_courses', JSON.stringify(parsedCourses));
-          localStorage.setItem('timetable_degree', 'custom');
+          workspaceStorage.setItem('custom_timetable_courses', JSON.stringify(parsedCourses));
+          workspaceStorage.setItem('timetable_degree', 'custom');
           // Clear any old selections to prevent crashes
-          localStorage.removeItem('timetable_selected_sections');
+          workspaceStorage.removeItem('timetable_selected_sections');
           
           initTimetablePlanner();
           showToast(`Successfully imported ${parsedCourses.length} custom courses from BITS Timetable!`, 'success');
@@ -2497,7 +2426,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       
       const labels = getCustomTagLabels();
       labels[col] = val;
-      localStorage.setItem('calendar_tag_labels', JSON.stringify(labels));
+      workspaceStorage.setItem('calendar_tag_labels', JSON.stringify(labels));
       
       // Re-render calendar while preserving input field focus
       const activeColor = document.activeElement ? document.activeElement.getAttribute('data-color') : null;
@@ -2520,18 +2449,18 @@ window.addEventListener('DOMContentLoaded', async () => {
   const sidebarDDayDateGroup = document.getElementById('sidebar-dday-date-group');
   
   // Set initial settings values in inputs
-  sidebarDDayEnabled.checked = localStorage.getItem('calendar_dday_enabled') === 'true';
-  sidebarDDayDate.value = localStorage.getItem('calendar_dday_date') || '2026-07-26';
+  sidebarDDayEnabled.checked = workspaceStorage.getItem('calendar_dday_enabled') === 'true';
+  sidebarDDayDate.value = workspaceStorage.getItem('calendar_dday_date') || '2026-07-26';
   sidebarDDayDateGroup.style.display = sidebarDDayEnabled.checked ? 'block' : 'none';
   
   sidebarDDayEnabled.addEventListener('change', (e) => {
-    localStorage.setItem('calendar_dday_enabled', e.target.checked);
+    workspaceStorage.setItem('calendar_dday_enabled', e.target.checked);
     sidebarDDayDateGroup.style.display = e.target.checked ? 'block' : 'none';
     renderCalendar();
   });
   
   sidebarDDayDate.addEventListener('change', (e) => {
-    localStorage.setItem('calendar_dday_date', e.target.value);
+    workspaceStorage.setItem('calendar_dday_date', e.target.value);
     renderCalendar();
   });
 
@@ -2598,7 +2527,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       });
     }
     
-    localStorage.setItem('calendar_events_list', JSON.stringify(calendarEventsList));
+    workspaceStorage.setItem('calendar_events_list', JSON.stringify(calendarEventsList));
     renderCalendar();
     closeCalendarEventModal();
   });
@@ -2618,7 +2547,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
         return evt;
       });
-      localStorage.setItem('calendar_events_list', JSON.stringify(calendarEventsList));
+      workspaceStorage.setItem('calendar_events_list', JSON.stringify(calendarEventsList));
       renderCalendar();
       closeCalendarEventModal();
     }
@@ -2628,7 +2557,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('delete-event-btn').addEventListener('click', () => {
     const id = document.getElementById('event-id').value;
     calendarEventsList = calendarEventsList.filter(evt => evt.id !== id);
-    localStorage.setItem('calendar_events_list', JSON.stringify(calendarEventsList));
+    workspaceStorage.setItem('calendar_events_list', JSON.stringify(calendarEventsList));
     renderCalendar();
     closeCalendarEventModal();
   });
@@ -2653,63 +2582,44 @@ window.addEventListener('DOMContentLoaded', async () => {
     panelSignin.style.display = 'flex';
   });
   
-  // Submit Login
-  document.getElementById('form-signin').addEventListener('submit', async (e) => {
-    e.preventDefault();
+  // Account passwords go directly to Supabase Auth and are never stored by the app.
+  document.getElementById('form-signin').addEventListener('submit', async event => {
+    event.preventDefault();
     hideAuthAlert();
-    
-    const usernameInput = document.getElementById('signin-username');
-    const passwordInput = document.getElementById('signin-password');
-    const username = usernameInput.value.trim();
-    const password = passwordInput.value;
-    
+    const form = event.currentTarget;
+    const button = form.querySelector('[type="submit"]');
+    button.disabled = true;
     try {
-      const res = await dbLoginUser(username, password);
-      localStorage.setItem('univault_session', res.username);
-      usernameInput.value = '';
-      passwordInput.value = '';
-      initAuth();
-      await renderBoard();
-      await renderMetrics();
-      updateGlobalFiltersSelect();
-    } catch (err) {
-      showAuthAlert(err.message);
-    }
+      await backend.signIn(document.getElementById('signin-username').value.trim(),document.getElementById('signin-password').value);
+      sessionStorage.removeItem('univault-guest');
+      form.reset();
+      window.location.reload();
+    } catch (error) {showAuthAlert(error.message);}
+    finally {button.disabled = false;}
   });
-  
-  // Submit Register
-  document.getElementById('form-signup').addEventListener('submit', async (e) => {
-    e.preventDefault();
+  document.getElementById('form-signup').addEventListener('submit', async event => {
+    event.preventDefault();
     hideAuthAlert();
-    
-    const usernameInput = document.getElementById('signup-username');
-    const passwordInput = document.getElementById('signup-password');
-    const confirmInput = document.getElementById('signup-confirm-password');
-    
-    const username = usernameInput.value.trim();
-    const password = passwordInput.value;
-    const confirmPass = confirmInput.value;
-    
-    if (password !== confirmPass) {
-      showAuthAlert("Passwords do not match");
-      return;
-    }
-    
+    const form = event.currentTarget;
+    const password = document.getElementById('signup-password').value;
+    if (password !== document.getElementById('signup-confirm-password').value) {showAuthAlert('Passwords do not match.'); return;}
+    const button = form.querySelector('[type="submit"]');
+    button.disabled = true;
     try {
-      const res = await dbRegisterUser(username, password);
-      localStorage.setItem('univault_session', res.username);
-      usernameInput.value = '';
-      passwordInput.value = '';
-      confirmInput.value = '';
-      initAuth();
-      await renderBoard();
-      await renderMetrics();
-      updateGlobalFiltersSelect();
-    } catch (err) {
-      showAuthAlert(err.message);
-    }
+      const result = await backend.signUp(document.getElementById('signup-username').value.trim(),password,new URL('.',window.location.href).href);
+      form.reset();
+      if (result.needsConfirmation) {
+        panelSignup.style.display = 'none';
+        panelSignin.style.display = 'flex';
+        showAuthAlert('Check your email to confirm your account, then return here to sign in.',true);
+      } else {
+        sessionStorage.removeItem('univault-guest');
+        window.location.reload();
+      }
+    } catch (error) {showAuthAlert(error.message);}
+    finally {button.disabled = false;}
   });
-  
+
   // Import BITS sheet pdf triggers
   const btnImport = document.getElementById('btn-import-performance');
   const fileInput = document.getElementById('performance-sheet-file-input');
@@ -2780,51 +2690,9 @@ window.addEventListener('DOMContentLoaded', async () => {
         
         showToast(`Successfully imported ${importedSems.length} semesters and courses from BITS performance sheet!`);
       } catch (err) {
-        console.error("PDF Parsing failed: ", err);
-        showToast("Importing performance sheet. Loading BITS courses...", "success");
-        
-        // Clear state and load BITS curriculum fallbacks
-        state.semesters = [];
-        state.courses = [];
-        
-        const fallbacks = getFallbackMockBITSCourses();
-        for (const item of fallbacks) {
-          let existingSem = state.semesters.find(s => s.name.toLowerCase() === item.semName.toLowerCase());
-          let semId = existingSem ? existingSem.id : 'sem-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-          if (!existingSem) {
-            state.semesters.push({ id: semId, name: item.semName, completed: false });
-          }
-          for (const course of item.courses) {
-            let existingCourse = state.courses.find(c => c.code.toLowerCase() === course.code.toLowerCase() && c.semesterId === semId);
-            if (!existingCourse) {
-              const courseId = 'course-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-              state.courses.push({
-                id: courseId,
-                name: course.title,
-                code: course.code,
-                prof: 'Dr. BITS Faculty',
-                semesterId: semId,
-                targetGrade: course.grade || 'A', // preserve grade if present in fallback list!
-                credits: course.credits || '3.0',
-                themeColor: 'indigo',
-                notes: `Imported fallback BITS course.\nGrade obtained: ${course.grade || 'Pending'}\n`,
-                checklist: []
-              });
-            }
-          }
-          
-          // Auto-mark as completed if no course has pending grade
-          const semCourses = state.courses.filter(c => c.semesterId === semId);
-          const hasPending = semCourses.some(c => !c.targetGrade || c.targetGrade.toUpperCase() === 'PENDING' || c.targetGrade.toUpperCase() === 'ONGOING');
-          const targetSem = state.semesters.find(s => s.id === semId);
-          if (targetSem && semCourses.length > 0) {
-            targetSem.completed = !hasPending;
-          }
-        }
-        saveStateToStorage();
-        await renderBoard();
-        await renderMetrics();
-        updateGlobalFiltersSelect();
+        console.error('PDF parsing failed',err);
+        loadStateFromStorage();
+        showToast('Could not read this PDF. Your saved courses have been kept.','error');
       } finally {
         btnImport.disabled = false;
         btnImport.innerHTML = originalText;
@@ -2833,14 +2701,16 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Logout
-  document.getElementById('btn-logout').addEventListener('click', () => {
-    if (confirm("Are you sure you want to log out?")) {
-      localStorage.removeItem('univault_session');
-      hideAuthAlert();
-      initAuth();
-    }
+  document.getElementById('btn-logout').addEventListener('click', async () => {
+    try {
+      persistPendingNotes();
+      if (backend.signedIn) await backend.signOut();
+      sessionStorage.removeItem('univault-guest');
+      window.location.reload();
+    } catch (error) {showToast('Your changes have not synced yet. Reconnect and sync before signing out.','error');}
   });
+  for (const id of ['form-signin','form-signup']) document.getElementById(id).querySelector('[type="submit"]').disabled = false;
+
 });
 
 // ================= PERFORMANCE SHEET PDF PARSER =================
@@ -3069,10 +2939,10 @@ function showToast(message, type = 'success') {
   toast.className = `toast toast-${type}`;
   toast.style.cssText = `
     padding: 1rem 1.5rem;
-    background: rgba(18, 19, 35, 0.85);
+    background: var(--bg-card);
     border: 1px solid ${type === 'success' ? 'var(--color-accent)' : 'var(--color-rose)'};
     border-radius: 12px;
-    color: white;
+    color: var(--text-primary);
     font-size: 0.9rem;
     font-weight: 500;
     backdrop-filter: blur(12px);
@@ -3154,7 +3024,7 @@ function renderCgpaCalculator() {
     const semCard = document.createElement('div');
     semCard.className = 'sidebar-card';
     semCard.style.cssText = `
-      background: rgba(18, 19, 35, 0.45);
+      background: var(--bg-card);
       border: 1px solid var(--border-color);
       border-radius: 16px;
       backdrop-filter: blur(8px);
@@ -3174,14 +3044,14 @@ function renderCgpaCalculator() {
     `;
     
     const semTitle = document.createElement('h3');
-    semTitle.style.cssText = 'font-size: 1.15rem; font-weight: 600; margin: 0; color: white;';
+    semTitle.style.cssText = 'font-size: 1.15rem; font-weight: 600; margin: 0; color: var(--text-primary);';
     semTitle.innerText = sem.name;
     
     const semSgpaBadge = document.createElement('span');
     semSgpaBadge.id = `sgpa-badge-${sem.id}`;
     semSgpaBadge.style.cssText = `
-      background: linear-gradient(135deg, #DD8C96 0%, #F4DAD4 100%);
-      color: #1b2432;
+      background: linear-gradient(135deg, #176052 0%, #398473 100%);
+      color: #ffffff;
       font-size: 0.85rem;
       font-weight: 700;
       padding: 4px 10px;
@@ -3220,7 +3090,7 @@ function renderCgpaCalculator() {
         code.innerText = course.code || 'N/A';
         
         const name = document.createElement('span');
-        name.style.cssText = 'font-size: 0.85rem; font-weight: 500; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;';
+        name.style.cssText = 'font-size: 0.85rem; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;';
         name.innerText = course.name;
         name.title = course.name;
         
@@ -3235,10 +3105,10 @@ function renderCgpaCalculator() {
         
         const select = document.createElement('select');
         select.style.cssText = `
-          background: rgba(18, 19, 35, 0.85);
+          background: var(--bg-card);
           border: 1px solid var(--border-color);
           border-radius: 6px;
-          color: white;
+          color: var(--text-primary);
           font-size: 0.8rem;
           padding: 2px 6px;
           outline: none;
@@ -3481,7 +3351,7 @@ const TIMETABLE_COURSES_DATA = {
 };
 
 function initTimetablePlanner() {
-  const degree = localStorage.getItem('timetable_degree');
+  const degree = workspaceStorage.getItem('timetable_degree');
   const setupContainer = document.getElementById('timetable-setup-container');
   const workspace = document.getElementById('timetable-workspace');
   const headerActions = document.getElementById('timetable-header-actions');
@@ -3512,27 +3382,27 @@ function handleTimetableDegreeSubmit() {
   if (!select) return;
   
   const val = select.value;
-  localStorage.setItem('timetable_degree', val);
+  workspaceStorage.setItem('timetable_degree', val);
   showToast(`Degree selected: ${val}! Starting planner...`, 'success');
   initTimetablePlanner();
 }
 
 function handleTimetableReset() {
   if (confirm("Are you sure you want to reset your timetable? This will clear all section selections.")) {
-    localStorage.removeItem('timetable_degree');
-    localStorage.removeItem('timetable_selected_sections');
-    localStorage.removeItem('timetable_frozen');
+    workspaceStorage.removeItem('timetable_degree');
+    workspaceStorage.removeItem('timetable_selected_sections');
+    workspaceStorage.removeItem('timetable_frozen');
     showToast("Timetable configuration reset.", "success");
     initTimetablePlanner();
   }
 }
 
 function getSelectedTimetableSections() {
-  return JSON.parse(localStorage.getItem('timetable_selected_sections') || '[]');
+  return JSON.parse(workspaceStorage.getItem('timetable_selected_sections') || '[]');
 }
 
 function saveSelectedTimetableSections(sections) {
-  localStorage.setItem('timetable_selected_sections', JSON.stringify(sections));
+  workspaceStorage.setItem('timetable_selected_sections', JSON.stringify(sections));
 }
 
 function renderTimetableWorkspace(degree) {
@@ -3541,10 +3411,10 @@ function renderTimetableWorkspace(degree) {
   coursesList.innerHTML = '';
   
   const courses = degree === 'custom' 
-    ? JSON.parse(localStorage.getItem('custom_timetable_courses') || '[]')
+    ? JSON.parse(workspaceStorage.getItem('custom_timetable_courses') || '[]')
     : (TIMETABLE_COURSES_DATA[degree] || []);
   const selectedSections = getSelectedTimetableSections();
-  const isFrozen = localStorage.getItem('timetable_frozen') === 'true';
+  const isFrozen = workspaceStorage.getItem('timetable_frozen') === 'true';
   
   const searchQuery = (document.getElementById('timetable-course-search')?.value || '').toLowerCase().trim();
 
@@ -3603,7 +3473,7 @@ function renderTimetableWorkspace(degree) {
     code.innerText = course.code;
     
     const name = document.createElement('span');
-    name.style.cssText = 'font-size: 0.9rem; font-weight: 600; color: white;';
+    name.style.cssText = 'font-size: 0.9rem; font-weight: 600; color: var(--text-primary);';
     name.innerText = course.name;
     
     titleRow.appendChild(code);
@@ -3637,7 +3507,7 @@ function renderTimetableWorkspace(degree) {
           pill.type = 'button';
           
           let badgeColor = 'var(--color-accent)';
-          if (grp.type === 'tutorials') badgeColor = '#f59e0b';
+          if (grp.type === 'tutorials') badgeColor = 'var(--color-amber)';
           if (grp.type === 'practicals') badgeColor = 'var(--color-emerald)';
 
           pill.style.cssText = `
@@ -3760,7 +3630,7 @@ function renderWeeklyTimetableGrid(courses, selectedSections) {
     
     // Hour label
     const tdHour = document.createElement('td');
-    tdHour.style.cssText = 'padding: 0.75rem; font-weight: 600; color: white; border-right: 1px solid var(--border-color);';
+    tdHour.style.cssText = 'padding: 0.75rem; font-weight: 600; color: var(--text-primary); border-right: 1px solid var(--border-color);';
     tdHour.innerHTML = `<div style="font-size: 0.85rem;">Hour ${h}</div><div style="font-size: 0.65rem; color: var(--text-secondary); font-weight: normal; margin-top: 0.15rem;">${hourTimings[h-1]}</div>`;
     tr.appendChild(tdHour);
     
@@ -3793,7 +3663,7 @@ function renderWeeklyTimetableGrid(courses, selectedSections) {
         tdCell.style.borderLeft = `3px solid ${border}`;
         
         const codeSpan = document.createElement('div');
-        codeSpan.style.cssText = 'font-weight: 700; color: white; font-size: 0.75rem;';
+        codeSpan.style.cssText = 'font-weight: 700; color: var(--text-primary); font-size: 0.75rem;';
         codeSpan.innerText = occ.courseCode;
         
         const detailsSpan = document.createElement('div');
@@ -3813,7 +3683,7 @@ function renderWeeklyTimetableGrid(courses, selectedSections) {
         warning.innerHTML = `⚠️ CLASH!`;
         
         const clashCourses = document.createElement('div');
-        clashCourses.style.cssText = 'font-size: 0.65rem; color: white; font-weight: 600; margin-top: 0.15rem;';
+        clashCourses.style.cssText = 'font-size: 0.65rem; color: var(--text-primary); font-weight: 600; margin-top: 0.15rem;';
         clashCourses.innerText = occupants.map(o => o.courseCode).join(' vs ');
         
         tdCell.appendChild(warning);
@@ -3901,15 +3771,15 @@ function handleAddCustomCourseSubmit(e) {
     }
   };
 
-  const degree = localStorage.getItem('timetable_degree') || 'custom';
-  let customList = JSON.parse(localStorage.getItem('custom_timetable_courses') || '[]');
+  const degree = workspaceStorage.getItem('timetable_degree') || 'custom';
+  let customList = JSON.parse(workspaceStorage.getItem('custom_timetable_courses') || '[]');
   
   if (degree !== 'custom') {
     if (!TIMETABLE_COURSES_DATA[degree]) TIMETABLE_COURSES_DATA[degree] = [];
     TIMETABLE_COURSES_DATA[degree].push(newCourse);
   } else {
     customList.push(newCourse);
-    localStorage.setItem('custom_timetable_courses', JSON.stringify(customList));
+    workspaceStorage.setItem('custom_timetable_courses', JSON.stringify(customList));
   }
 
   const selected = getSelectedTimetableSections();
@@ -3925,9 +3795,9 @@ function handleAddCustomCourseSubmit(e) {
 }
 
 function exportTimetableToICS() {
-  const degree = localStorage.getItem('timetable_degree') || 'A7';
+  const degree = workspaceStorage.getItem('timetable_degree') || 'A7';
   const courses = degree === 'custom'
-    ? JSON.parse(localStorage.getItem('custom_timetable_courses') || '[]')
+    ? JSON.parse(workspaceStorage.getItem('custom_timetable_courses') || '[]')
     : (TIMETABLE_COURSES_DATA[degree] || []);
   const selectedSections = getSelectedTimetableSections();
 
@@ -4131,7 +4001,7 @@ function parseTimetablePDF(text) {
   }
   
   if (examMap.length > 0) {
-    localStorage.setItem('custom_timetable_exams', JSON.stringify(examMap));
+    workspaceStorage.setItem('custom_timetable_exams', JSON.stringify(examMap));
   }
   
   return Object.values(coursesMap);
@@ -4141,7 +4011,7 @@ function renderExamScheduleList() {
   const container = document.getElementById('timetable-exam-list');
   if (!container) return;
   
-  const exams = JSON.parse(localStorage.getItem('custom_timetable_exams') || '[]');
+  const exams = JSON.parse(workspaceStorage.getItem('custom_timetable_exams') || '[]');
   const selectedSections = getSelectedTimetableSections();
 
   if (exams.length === 0) {
@@ -4171,15 +4041,15 @@ function renderExamScheduleList() {
     card.innerHTML = `
       <div style="display: flex; align-items: center; gap: 0.75rem;">
         <span style="font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 6px; background: ${isMidsem ? 'rgba(59, 130, 246, 0.15)' : 'rgba(168, 85, 247, 0.15)'}; color: ${isMidsem ? '#60a5fa' : '#c084fc'}; border: 1px solid ${isMidsem ? 'rgba(59, 130, 246, 0.3)' : 'rgba(168, 85, 247, 0.3)'};">
-          ${exam.type}
+          ${escapeHtml(exam.type)}
         </span>
         <div>
-          <div style="font-size: 0.85rem; font-weight: 700; color: white;">${exam.code}</div>
-          <div style="font-size: 0.75rem; color: var(--text-secondary);">${exam.time}</div>
+          <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">${escapeHtml(exam.code)}</div>
+          <div style="font-size: 0.75rem; color: var(--text-secondary);">${escapeHtml(exam.time)}</div>
         </div>
       </div>
       <div style="text-align: right;">
-        <div style="font-size: 0.85rem; font-weight: 700; color: var(--color-accent);">${exam.date}</div>
+        <div style="font-size: 0.85rem; font-weight: 700; color: var(--color-accent);">${escapeHtml(exam.date)}</div>
       </div>
     `;
 
@@ -4188,14 +4058,14 @@ function renderExamScheduleList() {
 }
 
 function handleTimetableFreezeToggle() {
-  const isFrozen = localStorage.getItem('timetable_frozen') === 'true';
-  const degree = localStorage.getItem('timetable_degree');
+  const isFrozen = workspaceStorage.getItem('timetable_frozen') === 'true';
+  const degree = workspaceStorage.getItem('timetable_degree');
   
   if (isFrozen) {
-    localStorage.setItem('timetable_frozen', 'false');
+    workspaceStorage.setItem('timetable_frozen', 'false');
     showToast("Timetable unfrozen. Planning mode enabled.", "success");
   } else {
-    localStorage.setItem('timetable_frozen', 'true');
+    workspaceStorage.setItem('timetable_frozen', 'true');
     showToast("Timetable frozen! Selections locked.", "success");
   }
   
@@ -4216,19 +4086,9 @@ function renderResourcesSpreadsheet() {
   
   let resources = [];
   try {
-    resources = JSON.parse(localStorage.getItem('univault_resources') || '[]');
+    resources = JSON.parse(workspaceStorage.getItem('univault_resources') || '[]');
   } catch (e) {
     resources = [];
-  }
-  
-  // Initial fallback sample resources for a premium look
-  if (resources.length === 0) {
-    resources = [
-      { url: 'https://www.chrono.crux-bphc.com', desc: 'Chrono BITS Hyderabad Timetable Planner' },
-      { url: 'https://bits-pilani.ac.in', desc: 'BITS Pilani Official Web Portal' },
-      { url: 'https://swd.bits-hyderabad.ac.in', desc: 'Student Welfare Division (SWD) Portal' }
-    ];
-    localStorage.setItem('univault_resources', JSON.stringify(resources));
   }
   
   resources.forEach((resource, index) => {
@@ -4250,7 +4110,7 @@ function renderResourcesSpreadsheet() {
       input.type = 'text';
       input.value = resource.url;
       input.className = 'form-control';
-      input.style.cssText = 'width: 100%; font-size: 0.85rem; padding: 4px 8px; height: 32px; background: rgba(255,255,255,0.05); color: white; border: 1px solid var(--border-color); border-radius: 4px;';
+      input.style.cssText = 'width: 100%; font-size: 0.85rem; padding: 4px 8px; height: 32px; background: rgba(255,255,255,0.05); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px;';
       
       let finished = false;
       function saveUrl() {
@@ -4264,7 +4124,7 @@ function renderResourcesSpreadsheet() {
             newUrl = 'https://' + newUrl;
           }
           resource.url = newUrl;
-          localStorage.setItem('univault_resources', JSON.stringify(resources));
+          workspaceStorage.setItem('univault_resources', JSON.stringify(resources));
         }
         activeResourceEditIndex = -1;
         activeResourceEditField = '';
@@ -4293,7 +4153,8 @@ function renderResourcesSpreadsheet() {
       container.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;';
       
       const link = document.createElement('a');
-      link.href = resource.url;
+      link.href = /^https?:\/\//i.test(resource.url) ? resource.url : '#';
+      link.rel = 'noopener noreferrer';
       link.target = '_blank';
       link.style.cssText = `
         color: var(--color-purple);
@@ -4352,7 +4213,7 @@ function renderResourcesSpreadsheet() {
       input.type = 'text';
       input.value = resource.desc;
       input.className = 'form-control';
-      input.style.cssText = 'width: 100%; font-size: 0.85rem; padding: 4px 8px; height: 32px; background: rgba(255,255,255,0.05); color: white; border: 1px solid var(--border-color); border-radius: 4px;';
+      input.style.cssText = 'width: 100%; font-size: 0.85rem; padding: 4px 8px; height: 32px; background: rgba(255,255,255,0.05); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px;';
       
       let finished = false;
       function saveDesc() {
@@ -4362,7 +4223,7 @@ function renderResourcesSpreadsheet() {
         const newDesc = input.value.trim();
         if (newDesc) {
           resource.desc = newDesc;
-          localStorage.setItem('univault_resources', JSON.stringify(resources));
+          workspaceStorage.setItem('univault_resources', JSON.stringify(resources));
         }
         activeResourceEditIndex = -1;
         activeResourceEditField = '';
@@ -4390,7 +4251,7 @@ function renderResourcesSpreadsheet() {
       container.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;';
       
       const descSpan = document.createElement('span');
-      descSpan.style.cssText = 'color: white; font-weight: 500;';
+      descSpan.style.cssText = 'color: var(--text-primary); font-weight: 500;';
       descSpan.innerText = resource.desc;
       container.appendChild(descSpan);
       
@@ -4431,7 +4292,7 @@ function renderResourcesSpreadsheet() {
     deleteBtn.addEventListener('click', () => {
       if (confirm(`Are you sure you want to delete row ${index + 1}?`)) {
         resources.splice(index, 1);
-        localStorage.setItem('univault_resources', JSON.stringify(resources));
+        workspaceStorage.setItem('univault_resources', JSON.stringify(resources));
         showToast("Row deleted successfully.", "success");
         renderResourcesSpreadsheet();
       }
@@ -4449,7 +4310,7 @@ function renderResourcesSpreadsheet() {
 function handleAddResourceRow() {
   let resources = [];
   try {
-    resources = JSON.parse(localStorage.getItem('univault_resources') || '[]');
+    resources = JSON.parse(workspaceStorage.getItem('univault_resources') || '[]');
   } catch (e) {
     resources = [];
   }
@@ -4459,7 +4320,7 @@ function handleAddResourceRow() {
     desc: 'Enter reference description...'
   });
   
-  localStorage.setItem('univault_resources', JSON.stringify(resources));
+  workspaceStorage.setItem('univault_resources', JSON.stringify(resources));
   
   // Auto-focus URL editing on new row
   activeResourceEditIndex = resources.length - 1;
@@ -4471,79 +4332,46 @@ function handleAddResourceRow() {
 
 // ================= SETTINGS & SYNC MODULE =================
 function handleExportBackup() {
-  const backup = {
-    semesters: state.semesters,
-    courses: state.courses,
-    tasks: state.tasks || [],
-    customTagLabels: localStorage.getItem('univault_custom_tags'),
-    timetableDegree: localStorage.getItem('timetable_degree'),
-    timetableSelected: localStorage.getItem('timetable_selected_sections'),
-    timetableFrozen: localStorage.getItem('timetable_frozen'),
-    customTimetableCourses: localStorage.getItem('custom_timetable_courses'),
-    resources: localStorage.getItem('univault_resources')
-  };
-  
-  const dataStr = JSON.stringify(backup, null, 2);
-  const blob = new Blob([dataStr], { type: 'application/json' });
+  persistPendingNotes();
+  const data = backend.snapshot();
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const url = URL.createObjectURL(blob);
-  
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `univault-sync-backup-${new Date().toISOString().slice(0,10)}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast("Backup file downloaded successfully!", "success");
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `univault-workspace-${new Date().toISOString().slice(0,10)}.json`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url),1000);
+  showToast('Workspace backup downloaded. Uploaded files remain in your material vault.');
 }
 
-function handleCopySyncCode() {
-  const backup = {
-    semesters: state.semesters,
-    courses: state.courses,
-    tasks: state.tasks || [],
-    customTagLabels: localStorage.getItem('univault_custom_tags'),
-    timetableDegree: localStorage.getItem('timetable_degree'),
-    timetableSelected: localStorage.getItem('timetable_selected_sections'),
-    timetableFrozen: localStorage.getItem('timetable_frozen'),
-    customTimetableCourses: localStorage.getItem('custom_timetable_courses'),
-    resources: localStorage.getItem('univault_resources')
-  };
-  
+async function handleCopySyncCode() {
   try {
-    const jsonStr = JSON.stringify(backup);
-    const base64 = btoa(unescape(encodeURIComponent(jsonStr)));
-    navigator.clipboard.writeText(base64);
-    showToast("Sync text code copied to clipboard!", "success");
-  } catch (e) {
-    console.error(e);
-    showToast("Failed to generate text sync code.", "error");
-  }
+    persistPendingNotes();
+    const data = JSON.stringify(backend.snapshot());
+    await navigator.clipboard.writeText(btoa(unescape(encodeURIComponent(data))));
+    showToast('Workspace backup code copied.');
+  } catch (error) {showToast('Could not copy. Download a backup file instead.','error');}
 }
 
 function applyImportData(data) {
-  if (!data.semesters || !data.courses) {
-    throw new Error("Invalid backup format");
+  let snapshot;
+  if (data.version === 1) snapshot = validateSnapshot(data);
+  else {
+    if (!Array.isArray(data.semesters) || !Array.isArray(data.courses)) throw new Error('Invalid backup format.');
+    const values = backend.snapshot().values;
+    values.univault_semesters = JSON.stringify(data.semesters);
+    values.univault_courses = JSON.stringify(data.courses);
+    const legacyFields = {customTagLabels:'univault_custom_tags',timetableDegree:'timetable_degree',timetableSelected:'timetable_selected_sections',timetableFrozen:'timetable_frozen',customTimetableCourses:'custom_timetable_courses',resources:'univault_resources'};
+    for (const [field,key] of Object.entries(legacyFields)) if (typeof data[field] === 'string') values[key] = data[field];
+    snapshot = validateSnapshot({version:1,values});
   }
-  
-  // Save state
-  state.semesters = data.semesters;
-  state.courses = data.courses;
-  state.tasks = data.tasks || [];
-  saveStateToStorage();
-  
-  // Save settings
-  if (data.customTagLabels) localStorage.setItem('univault_custom_tags', data.customTagLabels);
-  if (data.timetableDegree) localStorage.setItem('timetable_degree', data.timetableDegree);
-  if (data.timetableSelected) localStorage.setItem('timetable_selected_sections', data.timetableSelected);
-  if (data.timetableFrozen) localStorage.setItem('timetable_frozen', data.timetableFrozen);
-  if (data.customTimetableCourses) localStorage.setItem('custom_timetable_courses', data.customTimetableCourses);
-  if (data.resources) localStorage.setItem('univault_resources', data.resources);
-  
-  showToast("Sync complete! Page reloading...", "success");
-  setTimeout(() => {
-    window.location.reload();
-  }, 1500);
+  if (!confirm('Replace this workspace with the imported backup? Uploaded files will stay in your material vault.')) return;
+  for (const key of WORKSPACE_KEYS) {
+    if (snapshot.values[key] === null) workspaceStorage.removeItem(key);
+    else workspaceStorage.setItem(key,snapshot.values[key]);
+  }
+  refreshWorkspaceViews().catch(() => showToast('Please reload to view the imported workspace.','error'));
+  showToast('Backup restored.');
 }
 
 function handleImportFileChange(e) {
@@ -4583,203 +4411,288 @@ function handleImportSyncCode() {
   }
 }
 
-// ================= AUTOMATIC CLOUD SYNC MODULE =================
-function handleGenerateSyncKey() {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let rand = '';
-  for (let i = 0; i < 8; i++) {
-    rand += chars.charAt(Math.floor(Math.random() * chars.length));
+// ================= CLOUD WORKSPACE CONTROLS =================
+function updateBackendStatus(next) {
+  lastCloudStatus = next;
+  const local = !backend?.signedIn;
+  const message = local ? 'Saved on this device only' : next.message;
+  const status = document.getElementById('backend-status');
+  if (status) {status.textContent = message; status.dataset.state = local ? 'local' : next.state;}
+  const settingsStatus = document.getElementById('cloud-sync-status');
+  if (settingsStatus) settingsStatus.textContent = message;
+  const account = document.getElementById('backend-account');
+  if (account) account.textContent = backend?.user?.email || 'Local workspace';
+  const syncButton = document.getElementById('btn-sync-now');
+  if (syncButton) syncButton.disabled = local || ['loading','saving'].includes(next.state);
+  const reloadButton = document.getElementById('btn-reload-cloud');
+  if (reloadButton) reloadButton.hidden = next.state !== 'conflict';
+  const migration = document.getElementById('browser-migration-card');
+  if (migration) {
+    const legacy = backend?.legacySnapshot();
+    const hasData = legacy && WORKSPACE_KEYS.some(key => legacy.values[key] !== null && !['[]','{}',''].includes(legacy.values[key]));
+    migration.hidden = local || !hasData;
   }
-  const key = `univault-${rand}`;
-  const input = document.getElementById('input-cloud-sync-key');
-  if (input) {
-    input.value = key;
-  }
-  showToast("Generated a new private sync key!", "success");
+  const storageLabel = document.querySelector('.version-info');
+  if (storageLabel) storageLabel.lastChild.textContent = local ? ' Saved on this device' : ' Private cloud workspace';
 }
 
-function updateCloudSyncUI(enabled) {
-  const statusBadge = document.getElementById('cloud-sync-status');
-  const toggleBtn = document.getElementById('btn-toggle-cloud-sync');
-  
-  if (!statusBadge || !toggleBtn) return;
-  
-  if (enabled) {
-    statusBadge.innerText = "Enabled & Synced";
-    statusBadge.style.background = "rgba(16, 185, 129, 0.15)";
-    statusBadge.style.color = "var(--color-emerald)";
-    toggleBtn.className = "btn btn-secondary";
-    toggleBtn.innerHTML = `<i data-lucide="cloud-off" style="width: 16px; height: 16px; margin-right: 0.25rem;"></i> Disable Cloud Auto-Sync`;
-  } else {
-    statusBadge.innerText = "Disabled";
-    statusBadge.style.background = "rgba(239, 68, 68, 0.15)";
-    statusBadge.style.color = "var(--color-rose)";
-    toggleBtn.className = "btn btn-primary";
-    toggleBtn.innerHTML = `<i data-lucide="cloud-lightning" style="width: 16px; height: 16px; margin-right: 0.25rem;"></i> Enable Cloud Auto-Sync`;
-  }
-  lucide.createIcons();
+function persistPendingNotes() {
+  if (!activeCourseId || !notesSaveTimeout) return;
+  clearTimeout(notesSaveTimeout);
+  notesSaveTimeout = null;
+  const course = state.courses.find(item => item.id === activeCourseId);
+  if (course) {course.notes = document.getElementById('detail-notes-textarea').value; saveStateToStorage();}
 }
 
-async function initCloudSyncOnLoad() {
-  const enabled = localStorage.getItem('cloud_sync_enabled') === 'true';
-  const syncKey = localStorage.getItem('cloud_sync_key');
-  
-  const input = document.getElementById('input-cloud-sync-key');
-  if (input && syncKey) {
-    input.value = syncKey;
-  }
-  
-  updateCloudSyncUI(enabled);
-  
-  if (enabled && syncKey) {
-    const statusBadge = document.getElementById('cloud-sync-status');
-    if (statusBadge) {
-      statusBadge.innerText = "Syncing...";
-      statusBadge.style.background = "rgba(245, 158, 11, 0.15)";
-      statusBadge.style.color = "var(--color-amber)";
-    }
-    
-    try {
-      const response = await fetch(`https://kvdb.io/6P4kU2q5pX3w4y6Z7m8Q9a/${syncKey}`);
-      if (response.status === 404) {
-        console.log("No cloud state found. Initializing cloud backup with local data...");
-        await syncStateToCloud();
-      } else if (response.ok) {
-        const cloudData = await response.json();
-        const localUpdated = parseInt(localStorage.getItem('univault_last_updated') || '0');
-        const cloudUpdated = parseInt(cloudData.lastUpdated || '0');
-        
-        if (cloudUpdated > localUpdated) {
-          console.log("Cloud state is newer. Merging and updating local configurations...");
-          applyCloudState(cloudData);
-        } else if (localUpdated > cloudUpdated) {
-          console.log("Local state is newer. Uploading local updates to the cloud...");
-          await syncStateToCloud();
-        } else {
-          console.log("Cloud state and local configurations are in sync.");
-          updateCloudSyncUI(true);
-        }
-      }
-    } catch (err) {
-      console.warn("Failed to contact Cloud Sync bucket:", err);
-      if (statusBadge) {
-        statusBadge.innerText = "Offline";
-        statusBadge.style.background = "rgba(245, 158, 11, 0.15)";
-        statusBadge.style.color = "var(--color-amber)";
-      }
-    }
-  }
-}
-
-async function handleToggleCloudSync() {
-  const enabled = localStorage.getItem('cloud_sync_enabled') === 'true';
-  
-  if (enabled) {
-    localStorage.setItem('cloud_sync_enabled', 'false');
-    showToast("Cloud Auto-Sync disabled.", "success");
-    updateCloudSyncUI(false);
-  } else {
-    const input = document.getElementById('input-cloud-sync-key');
-    if (!input) return;
-    const syncKey = input.value.trim();
-    if (!syncKey || syncKey.length < 5) {
-      showToast("Please enter or generate a secure sync key (min 5 characters).", "error");
-      return;
-    }
-    
-    localStorage.setItem('cloud_sync_key', syncKey);
-    localStorage.setItem('cloud_sync_enabled', 'true');
-    showToast("Cloud Auto-Sync enabled! Connecting...", "success");
-    
-    const statusBadge = document.getElementById('cloud-sync-status');
-    if (statusBadge) {
-      statusBadge.innerText = "Syncing...";
-      statusBadge.style.background = "rgba(245, 158, 11, 0.15)";
-      statusBadge.style.color = "var(--color-amber)";
-    }
-    
-    // Sync local changes to cloud
-    try {
-      const response = await fetch(`https://kvdb.io/6P4kU2q5pX3w4y6Z7m8Q9a/${syncKey}`);
-      if (response.status === 404) {
-        await syncStateToCloud();
-        showToast("Initialized cloud sync backup!", "success");
-      } else if (response.ok) {
-        const cloudData = await response.json();
-        applyCloudState(cloudData);
-        showToast("Synchronized data from cloud successfully!", "success");
-      }
-    } catch (err) {
-      console.error(err);
-      await syncStateToCloud();
-    }
-  }
-}
-
-async function syncStateToCloud() {
-  const syncKey = localStorage.getItem('cloud_sync_key');
-  const enabled = localStorage.getItem('cloud_sync_enabled') === 'true';
-  if (!syncKey || !enabled) return;
-  
-  const timestamp = Date.now();
-  localStorage.setItem('univault_last_updated', timestamp.toString());
-  
-  const payload = {
-    lastUpdated: timestamp,
-    semesters: state.semesters,
-    courses: state.courses,
-    tasks: state.tasks || [],
-    customTagLabels: localStorage.getItem('univault_custom_tags'),
-    timetableDegree: localStorage.getItem('timetable_degree'),
-    timetableSelected: localStorage.getItem('timetable_selected_sections'),
-    timetableFrozen: localStorage.getItem('timetable_frozen'),
-    customTimetableCourses: localStorage.getItem('custom_timetable_courses'),
-    resources: localStorage.getItem('univault_resources')
-  };
-  
-  try {
-    const response = await fetch(`https://kvdb.io/6P4kU2q5pX3w4y6Z7m8Q9a/${syncKey}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-    
-    if (response.ok) {
-      console.log("State synced to cloud bucket at", new Date().toLocaleTimeString());
-      updateCloudSyncUI(true);
-    }
-  } catch (err) {
-    console.error("Cloud upload sync failed:", err);
-  }
-}
-
-function applyCloudState(data) {
-  if (!data.semesters || !data.courses) return;
-  
-  state.semesters = data.semesters;
-  state.courses = data.courses;
-  state.tasks = data.tasks || [];
-  
-  localStorage.setItem('univault_semesters', JSON.stringify(state.semesters));
-  localStorage.setItem('univault_courses', JSON.stringify(state.courses));
-  localStorage.setItem('univault_last_updated', (data.lastUpdated || Date.now()).toString());
-  
-  if (data.customTagLabels) localStorage.setItem('univault_custom_tags', data.customTagLabels);
-  if (data.timetableDegree) localStorage.setItem('timetable_degree', data.timetableDegree);
-  if (data.timetableSelected) localStorage.setItem('timetable_selected_sections', data.timetableSelected);
-  if (data.timetableFrozen) localStorage.setItem('timetable_frozen', data.timetableFrozen);
-  if (data.customTimetableCourses) localStorage.setItem('custom_timetable_courses', data.customTimetableCourses);
-  if (data.resources) localStorage.setItem('univault_resources', data.resources);
-  
-  updateCloudSyncUI(true);
-  
-  // Rerender all active panels to avoid reloading the browser entirely
-  renderBoard();
-  renderMetrics();
+async function refreshWorkspaceViews() {
+  loadStateFromStorage();
+  calendarEventsList = JSON.parse(workspaceStorage.getItem('calendar_events_list') || '[]');
+  await renderBoard();
+  await renderMetrics();
   updateGlobalFiltersSelect();
+  if (activeTab === 'calendar' || activeTab === 'todo') {generateDays(); renderCalendar();}
+  if (activeTab === 'materials') await renderMaterialsVault();
   if (activeTab === 'cgpa') renderCgpaCalculator();
   if (activeTab === 'timetable') initTimetablePlanner();
   if (activeTab === 'resources') renderResourcesSpreadsheet();
+  if (activeTab === 'course-detail' && activeCourseId) {
+    if (state.courses.some(course => course.id === activeCourseId)) await openCourseDetail(activeCourseId);
+    else handleNavigation('dashboard');
+  }
+}
+
+async function readLegacyFiles() {
+  return new Promise((resolve,reject) => {
+    const request = indexedDB.open(DB_NAME,DB_VERSION);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains(STORE_NAME)) {database.close(); resolve([]); return;}
+      const transaction = database.transaction(STORE_NAME,'readonly');
+      const files = transaction.objectStore(STORE_NAME).getAll();
+      files.onsuccess = () => {database.close(); resolve(files.result || []);};
+      files.onerror = () => {database.close(); reject(files.error);};
+    };
+  });
+}
+
+async function importBrowserWorkspace() {
+  const buttons = ['btn-migrate-local','btn-retry-file-import'].map(id => document.getElementById(id));
+  buttons.forEach(button => button.disabled = true);
+  try {
+    const {failedFiles} = await backend.importLegacy(await readLegacyFiles());
+    await refreshWorkspaceViews();
+    document.getElementById('btn-retry-file-import').hidden = failedFiles.length === 0;
+    document.getElementById('migration-result').textContent = failedFiles.length ? `${failedFiles.length} files could not upload. Your originals are still saved in this browser. Retry when connected.` : 'Your browser workspace is now in your account. The original local copy is unchanged.';
+    showToast(failedFiles.length ? 'Imported your workspace. Some files still need to upload.' : 'Workspace and files imported.','success');
+  } catch (error) {showToast(error.message,'error');}
+  finally {buttons.forEach(button => button.disabled = false);}
+}
+
+// ================= WORKSPACE INTERFACE =================
+function closeWorkspaceNavigation() {
+  document.body.classList.remove('navigation-open');
+  const toggle = document.getElementById('menu-toggle');
+  if (toggle) toggle.setAttribute('aria-expanded', 'false');
+  const scrim = document.getElementById('sidebar-scrim');
+  if (scrim) scrim.hidden = true;
+  const sidebar = document.getElementById('app-sidebar');
+  if (sidebar) sidebar.inert = window.matchMedia('(max-width: 700px)').matches;
+}
+
+function initializeWorkspaceInterface() {
+  const date = new Date();
+  const dateElement = document.getElementById('workspace-date');
+  dateElement.dateTime = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  dateElement.textContent = date.toLocaleDateString(undefined, {weekday:'short', day:'numeric', month:'short', year:'numeric'});
+  document.getElementById('nav-dashboard').setAttribute('aria-current', 'page');
+  document.querySelectorAll('.nav-item button').forEach(button => button.title = button.textContent.trim());
+  document.getElementById('dashboard-search').addEventListener('input', applyDashboardFilters);
+  document.getElementById('dashboard-semester-filter').addEventListener('change', applyDashboardFilters);
+  document.getElementById('btn-overview-calendar').addEventListener('click', () => handleNavigation('calendar'));
+  document.getElementById('menu-toggle').addEventListener('click', () => {
+    const open = document.body.classList.toggle('navigation-open');
+    document.getElementById('menu-toggle').setAttribute('aria-expanded', String(open));
+    document.getElementById('sidebar-scrim').hidden = !open;
+    document.getElementById('app-sidebar').inert = !open;
+    if (open) document.getElementById('sidebar-close').focus();
+  });
+  const closeMenu = () => { closeWorkspaceNavigation(); document.getElementById('menu-toggle').focus(); };
+  document.getElementById('sidebar-scrim').addEventListener('click', closeMenu);
+  document.getElementById('sidebar-close').addEventListener('click', closeMenu);
+  const mobileQuery = window.matchMedia('(max-width: 700px)');
+  const updateNavigation = () => {
+    document.getElementById('app-sidebar').inert = mobileQuery.matches && !document.body.classList.contains('navigation-open');
+    if (!mobileQuery.matches) closeWorkspaceNavigation();
+  };
+  mobileQuery.addEventListener('change', updateNavigation);
+  updateNavigation();
+  initializeDialogAccessibility();
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && document.body.classList.contains('navigation-open')) {
+      closeWorkspaceNavigation();
+      document.getElementById('menu-toggle').focus();
+    }
+    if (event.key === 'Escape') document.querySelector('.dashboard-tools').open = false;
+    if (event.key === 'Tab' && document.body.classList.contains('navigation-open')) {
+      containKeyboardFocus(event, document.getElementById('app-sidebar'));
+    }
+  });
+  document.addEventListener('click', event => {
+    const tools = document.querySelector('.dashboard-tools');
+    if (!tools.contains(event.target) || event.target.closest('.dashboard-tools-menu button')) tools.open = false;
+  });
+  // Give existing icon-only buttons accessible names without changing their actions.
+  document.querySelectorAll('button[title]').forEach(button => {
+    if (!button.getAttribute('aria-label')) button.setAttribute('aria-label', button.title);
+  });
+  document.querySelectorAll('.folder-dropzone').forEach(zone => {
+    zone.tabIndex = 0;
+    zone.setAttribute('role', 'button');
+    zone.setAttribute('aria-label', zone.querySelector('.dropzone-txt').textContent);
+    zone.addEventListener('keydown', event => {
+      if (event.target === zone && (event.key === 'Enter' || event.key === ' ')) {event.preventDefault(); zone.click();}
+    });
+  });
+  document.getElementById('detail-new-req-input').setAttribute('aria-label', 'New course task');
+  document.getElementById('detail-notes-textarea').setAttribute('aria-label', 'Course notes');
+  document.getElementById('btn-prev-month').setAttribute('aria-label', 'Previous month');
+  document.getElementById('btn-next-month').setAttribute('aria-label', 'Next month');
+  document.querySelectorAll('.modal-close').forEach(button => button.setAttribute('aria-label', 'Close dialog'));
+}
+
+function syncDashboardSemesterFilter() {
+  const select = document.getElementById('dashboard-semester-filter');
+  if (!select) return;
+  const selected = select.value;
+  select.replaceChildren(new Option('All semesters', 'all'));
+  state.semesters.forEach(semester => select.add(new Option(semester.name, semester.id)));
+  select.value = state.semesters.some(semester => semester.id === selected) ? selected : 'all';
+}
+
+function applyDashboardFilters() {
+  const input = document.getElementById('dashboard-search');
+  if (!input) return;
+  const query = input.value.trim().toLocaleLowerCase();
+  const semesterId = document.getElementById('dashboard-semester-filter').value;
+  let visibleCourses = 0;
+  document.querySelectorAll('#semester-board .semester-column').forEach(column => {
+    let matches = 0;
+    column.querySelectorAll('.course-card').forEach(card => {
+      const course = state.courses.find(item => item.id === card.dataset.id);
+      const match = !!course && [course.name, course.code, course.prof].join(' ').toLocaleLowerCase().includes(query);
+      card.hidden = !match;
+      if (match) matches++;
+    });
+    column.hidden = (semesterId !== 'all' && column.dataset.id !== semesterId) || (!!query && matches === 0);
+    if (!column.hidden) visibleCourses += matches;
+  });
+  document.getElementById('board-result-count').textContent = visibleCourses;
+  document.getElementById('dashboard-search-status').textContent = `${visibleCourses} ${visibleCourses === 1 ? 'course' : 'courses'} found`;
+  let empty = document.getElementById('dashboard-no-results');
+  const noResults = state.semesters.length > 0 && !Array.from(document.querySelectorAll('#semester-board .semester-column')).some(column => !column.hidden);
+  if (noResults && !empty) {
+    empty = document.createElement('div');
+    empty.id = 'dashboard-no-results';
+    empty.className = 'empty-state';
+    const heading = document.createElement('h3');
+    heading.textContent = 'No matching courses';
+    const description = document.createElement('p');
+    description.textContent = 'Try a different name, course code, or semester.';
+    const reset = document.createElement('button');
+    reset.className = 'btn btn-secondary';
+    reset.textContent = 'Clear filters';
+    reset.addEventListener('click', () => {
+      input.value = '';
+      document.getElementById('dashboard-semester-filter').value = 'all';
+      applyDashboardFilters();
+      input.focus();
+    });
+    empty.append(heading, description, reset);
+    document.getElementById('semester-board').append(empty);
+  }
+  if (empty) empty.hidden = !noResults;
+}
+
+function renderDashboardOverview() {
+  const list = document.getElementById('focus-task-list');
+  if (!list) return;
+  list.replaceChildren();
+  const tasks = state.courses.flatMap(course => (course.checklist || []).map(task => ({course, task})));
+  const pending = tasks.filter(item => !item.task.completed);
+  const completed = tasks.length - pending.length;
+  const progress = tasks.length ? Math.round(completed / tasks.length * 100) : 0;
+  document.getElementById('focus-count').textContent = `${pending.length} left`;
+  document.getElementById('focus-progress-label').textContent = `${completed} of ${tasks.length} tasks complete`;
+  document.getElementById('focus-progress-value').textContent = `${progress}%`;
+  document.getElementById('focus-progress-bar').style.width = `${progress}%`;
+  if (!pending.length) {
+    const message = document.createElement('p');
+    message.className = 'focus-empty';
+    message.textContent = tasks.length ? 'All caught up. A little breathing room, earned.' : 'Add tasks inside a course. Your next steps will appear here.';
+    list.append(message);
+  }
+  pending.slice(0, 2).forEach(({course, task}) => {
+    const button = document.createElement('button');
+    button.className = 'focus-task';
+    const icon = document.createElement('span');
+    icon.className = 'focus-task-icon';
+    icon.innerHTML = '<i data-lucide="arrow-up-right"></i>';
+    const text = document.createElement('span');
+    const label = document.createElement('strong');
+    label.textContent = task.text;
+    const code = document.createElement('small');
+    code.textContent = course.code || course.name;
+    text.append(label, code);
+    button.append(icon, text);
+    button.addEventListener('click', () => openCourseDetail(course.id));
+    list.append(button);
+  });
+}
+
+
+function containKeyboardFocus(event, container) {
+  const items = Array.from(container.querySelectorAll('button, input, select, textarea, a[href], [tabindex="0"]'))
+    .filter(element => !element.disabled && element.getClientRects().length > 0 && element.type !== 'hidden');
+  const first = items[0];
+  const last = items[items.length - 1];
+  if (event.shiftKey && document.activeElement === first) {event.preventDefault(); last.focus();}
+  else if (!event.shiftKey && document.activeElement === last) {event.preventDefault(); first.focus();}
+}
+
+function initializeDialogAccessibility() {
+  const app = document.querySelector('.app-container');
+  document.querySelectorAll('.modal-backdrop').forEach((backdrop, index) => {
+    const dialog = backdrop.querySelector('.modal');
+    const title = backdrop.querySelector('.modal-title');
+    if (!dialog) return;
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    if (title) {
+      title.id ||= `workspace-dialog-title-${index}`;
+      dialog.setAttribute('aria-labelledby', title.id);
+    }
+    let returnFocus = null;
+    new MutationObserver(() => {
+      if (backdrop.classList.contains('active')) {
+        returnFocus = document.activeElement;
+        app.inert = true;
+        document.body.classList.add('dialog-open');
+        const target = dialog.querySelector('input:not([type="hidden"]), textarea, select') || dialog.querySelector('button');
+        if (target) target.focus();
+      } else {
+        app.inert = false;
+        document.body.classList.remove('dialog-open');
+        if (returnFocus?.isConnected && returnFocus.getClientRects().length) returnFocus.focus({preventScroll: true});
+      }
+    }).observe(backdrop, {attributes:true, attributeFilter:['class']});
+    backdrop.addEventListener('keydown', event => {
+      if (event.key === 'Tab') containKeyboardFocus(event, dialog);
+      if (event.key === 'Escape') {event.preventDefault(); backdrop.querySelector('.modal-close')?.click();}
+    });
+  });
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 }

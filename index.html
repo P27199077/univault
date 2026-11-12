@@ -5,12 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>UniVault - Interactive Student Dashboard</title>
   <meta name="description" content="Manage your university semesters, courses, slides, and class notes in an interactive dashboard.">
+  <meta name="theme-color" content="#176052">
   <link rel="stylesheet" href="style.css">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="pdf.min.js"></script>
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
 
   <!-- Background Animated Mesh -->
   <div class="bg-mesh">
@@ -24,7 +26,7 @@
     <div class="login-card">
       <div class="login-brand">
         <div class="brand-icon">
-          <i data-lucide="shield-check" style="color: white;"></i>
+          <i data-lucide="layers" style="color: white;"></i>
         </div>
         <span class="brand-name">UniVault</span>
       </div>
@@ -36,19 +38,20 @@
 
       <!-- Sign In Form Panel -->
       <div class="auth-panel" id="panel-signin">
-        <h2 class="auth-title">Welcome Back</h2>
-        <p class="auth-subtitle">Log in to access your personal workspace.</p>
+        <p class="eyebrow auth-eyebrow">LESS CLUTTER. MORE CLARITY.</p><h2 class="auth-title">Welcome to your workspace.</h2>
+        <p class="auth-subtitle">Sign in to your private university workspace.</p>
         
+        <div class="setup-notice" id="cloud-unconfigured" hidden>Cloud accounts are not connected yet. You can continue on this device while setup is completed.</div>
         <form id="form-signin">
           <div class="form-group">
-            <label class="form-label" for="signin-username">Username</label>
-            <input type="text" class="form-control" id="signin-username" placeholder="e.g. tanisha" required>
+            <label class="form-label" for="signin-username">Email address</label>
+            <input type="email" autocomplete="email" class="form-control" id="signin-username" placeholder="you@example.com" required>
           </div>
           <div class="form-group">
             <label class="form-label" for="signin-password">Password</label>
-            <input type="password" class="form-control" id="signin-password" placeholder="••••••••" required>
+            <input type="password" class="form-control" autocomplete="current-password" id="signin-password" placeholder="••••••••" required>
           </div>
-          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1.5rem; justify-content: center;">
+          <button type="submit" class="btn btn-primary" disabled style="width: 100%; margin-top: 1.5rem; justify-content: center;">
             Sign In <i data-lucide="log-in"></i>
           </button>
         </form>
@@ -60,22 +63,22 @@
       <!-- Sign Up Form Panel -->
       <div class="auth-panel" id="panel-signup" style="display: none;">
         <h2 class="auth-title">Create Account</h2>
-        <p class="auth-subtitle">Set up local credentials to secure your workspace.</p>
+        <p class="auth-subtitle">Save your courses and files across your devices.</p>
         
         <form id="form-signup">
           <div class="form-group">
-            <label class="form-label" for="signup-username">Desired Username</label>
-            <input type="text" class="form-control" id="signup-username" placeholder="e.g. tanisha" required>
+            <label class="form-label" for="signup-username">Email address</label>
+            <input type="email" autocomplete="email" class="form-control" id="signup-username" placeholder="you@example.com" required>
           </div>
           <div class="form-group">
             <label class="form-label" for="signup-password">Password</label>
-            <input type="password" class="form-control" id="signup-password" placeholder="••••••••" minlength="4" required>
+            <input type="password" class="form-control" autocomplete="new-password" id="signup-password" placeholder="••••••••" minlength="8" required>
           </div>
           <div class="form-group">
             <label class="form-label" for="signup-confirm-password">Confirm Password</label>
-            <input type="password" class="form-control" id="signup-confirm-password" placeholder="••••••••" required>
+            <input type="password" class="form-control" autocomplete="new-password" id="signup-confirm-password" placeholder="••••••••" required>
           </div>
-          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1.5rem; justify-content: center;">
+          <button type="submit" class="btn btn-primary" disabled style="width: 100%; margin-top: 1.5rem; justify-content: center;">
             Get Started <i data-lucide="user-plus"></i>
           </button>
         </form>
@@ -83,22 +86,24 @@
           Already have an account? <a href="#" id="link-goto-signin">Sign In</a>
         </div>
       </div>
-
+      <div class="local-workspace-option"><button type="button" class="btn btn-secondary" id="btn-continue-local">Continue on this device</button><p>Local mode stays in this browser. You can import it into your account later.</p></div>
     </div>
   </div>
 
-  <div class="app-container">
+  <div class="app-container" style="display:none;">
     
     <!-- Sidebar Navigation -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="app-sidebar" aria-label="Workspace navigation">
+      <button class="sidebar-close menu-toggle" id="sidebar-close" aria-label="Close navigation"><i data-lucide="x"></i></button>
       <div class="brand">
         <div class="brand-icon">
-          <i data-lucide="shield-check" style="color: white;"></i>
+          <i data-lucide="layers" style="color: white;"></i>
         </div>
         <span class="brand-name">UniVault</span>
       </div>
 
-      <nav>
+      <nav aria-label="Main navigation">
+        <p class="nav-section-label">YOUR WORKSPACE</p>
         <ul class="nav-links">
           <li class="nav-item active" id="nav-dashboard-li">
             <button id="nav-dashboard">
@@ -109,7 +114,7 @@
           <li class="nav-item" id="nav-materials-li">
             <button id="nav-materials">
               <i data-lucide="folder-open"></i>
-              <span>Material Vault</span>
+              <span>My materials</span>
             </button>
           </li>
           <li class="nav-item" id="nav-calendar-li">
@@ -121,31 +126,39 @@
           <li class="nav-item" id="nav-todo-li">
             <button id="nav-todo">
               <i data-lucide="check-square"></i>
-              <span>Today's Tasks</span>
+              <span>Today’s tasks</span>
+            </button>
+          </li>
+          <li class="nav-section-label" aria-hidden="true">ACADEMICS</li>
+          <li class="nav-item" id="nav-attendance-li">
+            <button id="nav-attendance">
+              <i data-lucide="clipboard-check"></i>
+              <span>Attendance</span>
             </button>
           </li>
           <li class="nav-item" id="nav-cgpa-li">
             <button id="nav-cgpa">
               <i data-lucide="calculator"></i>
-              <span>CGPA Calculator</span>
+              <span>Grade calculator</span>
             </button>
           </li>
           <li class="nav-item" id="nav-timetable-li">
             <button id="nav-timetable">
               <i data-lucide="grid"></i>
-              <span>Timetable Planner</span>
+              <span>Timetable</span>
             </button>
           </li>
           <li class="nav-item" id="nav-resources-li">
             <button id="nav-resources">
               <i data-lucide="link"></i>
-              <span>Resources Directory</span>
+              <span>Useful links</span>
             </button>
           </li>
+          <li class="nav-section-label" aria-hidden="true">PREFERENCES</li>
           <li class="nav-item" id="nav-settings-li">
             <button id="nav-settings">
               <i data-lucide="settings"></i>
-              <span>Settings & Sync</span>
+              <span>Settings & backup</span>
             </button>
           </li>
         </ul>
@@ -163,28 +176,27 @@
           </button>
         </div>
         <div class="version-info" style="margin-top: 0.5rem; font-size: 0.75rem;">
-          <strong>UniVault v1.0</strong> · Local Secure Hub
+          <span class="storage-dot"></span> Saved in this browser
         </div>
       </div>
     </aside>
 
     <!-- Main Content Panel -->
-    <main class="main-content">
+    <button class="sidebar-scrim" id="sidebar-scrim" aria-label="Close navigation" hidden></button>
+    <main class="main-content" id="main-content" tabindex="-1">
+      <div class="workspace-topbar">
+        <div class="workspace-location"><button class="menu-toggle" id="menu-toggle" aria-label="Open navigation" aria-controls="app-sidebar" aria-expanded="false"><i data-lucide="menu"></i></button><span class="workspace-wordmark">My workspace</span><span class="topbar-divider">/</span><span id="current-location">Overview</span></div>
+        <div class="workspace-status"><span id="backend-status" role="status" data-state="loading">Connecting…</span><time id="workspace-date"></time></div>
+      </div>
       
       <!-- Top Header -->
       <header>
         <div class="welcome">
-          <h1 id="page-title">Dashboard</h1>
-          <p id="page-subtitle">Welcome back! Organize your classes, schedules, and materials.</p>
+          <p class="eyebrow" id="page-eyebrow">A LITTLE CLARITY FOR YOUR DAY</p>
+          <h1 id="page-title">Your semester, sorted.</h1>
+          <p id="page-subtitle">All your courses, materials, and plans. One calm place.</p>
         </div>
         <div class="header-actions">
-          <button class="btn btn-secondary" id="btn-import-performance" style="display: flex; align-items: center; gap: 0.5rem;">
-            <i data-lucide="upload-cloud"></i> Import BITS Sheet
-          </button>
-           <input type="file" id="performance-sheet-file-input" accept="application/pdf" style="display: none;">
-          <button class="btn btn-secondary" id="btn-clear-all-dashboard" style="display: flex; align-items: center; gap: 0.5rem; border-color: rgba(239, 68, 68, 0.4); color: var(--color-rose);">
-            <i data-lucide="trash-2"></i> Clear All
-          </button>
           <button class="btn btn-secondary" id="btn-add-semester">
             <i data-lucide="plus-circle"></i> Add Semester
           </button>
@@ -197,6 +209,10 @@
       <!-- Dashboard View Panel -->
       <section class="view-panel active" id="view-dashboard">
         
+        <div class="overview-banner">
+          <div class="overview-copy"><span class="banner-kicker"><span class="storage-dot"></span> ROOM TO FOCUS</span><h2><span>Big plans.</span> <span>Small steps.</span></h2><p>Keep your learning together. Pick a course and take the next step.</p><button class="banner-link" id="btn-overview-calendar">Plan your week <i data-lucide="arrow-up-right"></i></button></div>
+          <div class="focus-card"><div class="focus-heading"><span><i data-lucide="circle-check"></i> Your course checklist</span><span id="focus-count" class="focus-count">0 left</span></div><div id="focus-task-list" class="focus-task-list"></div><div class="focus-footer"><span id="focus-progress-label">Your progress</span><span id="focus-progress-value">0%</span></div><div class="focus-progress-track"><div id="focus-progress-bar"></div></div></div>
+        </div>
         <!-- Metrics Summary Grid -->
         <div class="metrics-grid">
           <div class="metric-card purple">
@@ -237,7 +253,21 @@
           </div>
         </div>
 
-        <!-- Semesters Horizontal Drag-and-Drop Container -->
+        <div class="board-section-heading"><div><p class="eyebrow">YOUR LEARNING SPACE</p><h2>Courses & semesters <span id="board-result-count" class="result-count"></span></h2></div><p>Open a course to find notes, files & tasks.</p></div>
+        <div class="board-toolbar">
+          <div class="search-input-wrapper course-search"><i data-lucide="search" class="search-icon"></i><input class="form-control" id="dashboard-search" type="search" aria-label="Search courses" placeholder="Find a course, code, or professor…"></div>
+          <select class="form-control" id="dashboard-semester-filter" aria-label="Filter by semester"><option value="all">All semesters</option></select>
+          <details class="dashboard-tools"><summary class="btn btn-secondary"><i data-lucide="sliders-horizontal"></i> Manage <i data-lucide="chevron-down"></i></summary><div class="dashboard-tools-menu">          <button class="btn btn-secondary" id="btn-import-performance" style="display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="upload-cloud"></i> Import performance PDF
+          </button>
+           <input type="file" id="performance-sheet-file-input" accept="application/pdf" style="display: none;">
+          <button class="btn btn-secondary" id="btn-clear-all-dashboard" style="display: flex; align-items: center; gap: 0.5rem; border-color: rgba(239, 68, 68, 0.4); color: var(--color-rose);">
+            <i data-lucide="trash-2"></i> Clear dashboard
+          </button>
+</div></details>
+        </div>
+        <p class="sr-only" id="dashboard-search-status" role="status"></p>
+        <!-- Semesters and courses -->
         <div class="semester-container" id="semester-board">
           <!-- Dynamically populated semester columns -->
         </div>
@@ -587,11 +617,11 @@
           <!-- Left Column: Tasks Grid -->
           <div class="calendar-grid-column" style="flex: 2; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
             
-            <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; min-height: 400px; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px);">
+            <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; min-height: 400px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px);">
               <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
                 <div style="display: flex; align-items: center; gap: 0.75rem;">
                   <i data-lucide="check-square" style="color: var(--color-accent); width: 24px; height: 24px;"></i>
-                  <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0; color: white;">Pending Tasks</h2>
+                  <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0; color: var(--text-primary);">Pending Tasks</h2>
                 </div>
                 <button class="btn btn-primary btn-sm" id="btn-todo-page-add" style="display: flex; align-items: center; gap: 0.5rem; height: 36px; padding: 0 1rem; font-size: 0.85rem; border-radius: 8px;">
                   <i data-lucide="plus"></i> Add Task
@@ -608,10 +638,10 @@
           <!-- Right Column: Completed Tasks -->
           <aside class="calendar-sidebar-panel" style="flex: 1; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
             
-            <div class="sidebar-card" style="flex: 1; display: flex; flex-direction: column; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); padding: 1.5rem; min-height: 400px;">
+            <div class="sidebar-card" style="flex: 1; display: flex; flex-direction: column; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); padding: 1.5rem; min-height: 400px;">
               <div style="display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1rem;">
                 <i data-lucide="check-circle" style="color: var(--color-emerald); width: 20px; height: 20px;"></i>
-                <h3 style="font-size: 1.2rem; font-weight: 600; margin: 0; color: white;">Completed Today</h3>
+                <h3 style="font-size: 1.2rem; font-weight: 600; margin: 0; color: var(--text-primary);">Completed Today</h3>
               </div>
               <ul id="todo-page-done-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem;">
                 <!-- Dynamically populated -->
@@ -623,19 +653,29 @@
         </div>
       </section>
 
+      <!-- Attendance reminder: implementation planned for a later update. -->
+      <section class="view-panel" id="view-attendance" aria-label="Attendance tracking plans">
+        <div class="empty-state attendance-planned">
+          <div class="empty-state-icon"><i data-lucide="clipboard-check"></i></div>
+          <span class="attendance-planned-label">Planned</span>
+          <h2 class="empty-state-title">Attendance tracking</h2>
+          <p class="empty-state-desc">A place to mark classes, track your attendance target, and import records from your college’s Excel sheet. We’ll build this later.</p>
+        </div>
+      </section>
+
       <!-- CGPA Calculator View Panel -->
       <section class="view-panel" id="view-cgpa">
         <div class="view-header" style="margin-bottom: 2rem;">
           <div>
-            <h1 id="page-title">CGPA Calculator</h1>
-            <p id="page-subtitle">Track, predict, and project your academic performance across semesters.</p>
+            <h1 class="section-duplicate-title">CGPA Calculator</h1>
+            <p class="section-duplicate-subtitle">Track, predict, and project your academic performance across semesters.</p>
           </div>
         </div>
 
         <!-- Cumulative CGPA Card -->
-        <div class="metric-card purple" style="display: flex; flex-direction: column; gap: 1rem; align-items: center; justify-content: center; padding: 2rem; margin-bottom: 2rem; border-radius: 16px; background: rgba(43, 56, 76, 0.4); text-align: center; border: 1px solid var(--border-color); backdrop-filter: blur(8px);">
+        <div class="metric-card purple" style="display: flex; flex-direction: column; gap: 1rem; align-items: center; justify-content: center; padding: 2rem; margin-bottom: 2rem; border-radius: 16px; background: var(--bg-card); text-align: center; border: 1px solid var(--border-color); backdrop-filter: blur(8px);">
           <div style="font-size: 1.2rem; opacity: 0.8; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">Cumulative CGPA</div>
-          <div id="overall-cgpa-display" style="font-size: 4rem; font-weight: 800; background: linear-gradient(135deg, #DD8C96 0%, #F4DAD4 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 2px 8px rgba(221, 140, 150, 0.3));">0.00</div>
+          <div id="overall-cgpa-display" style="font-size: 4rem; font-weight: 800; background: linear-gradient(135deg, #176052 0%, #398473 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 2px 8px rgba(221, 140, 150, 0.3));">0.00</div>
           <div style="display: flex; gap: 2rem; margin-top: 0.5rem; font-size: 0.95rem; color: var(--text-secondary);">
             <div>Total Credits: <span id="overall-credits-display" style="color: var(--text-primary); font-weight: 600;">0.0</span></div>
             <div>Calculated Courses: <span id="overall-courses-display" style="color: var(--text-primary); font-weight: 600;">0</span></div>
@@ -645,14 +685,15 @@
         <!-- Semesters CGPA Container -->
         <div id="cgpa-semesters-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1.5rem; padding-bottom: 3rem;">
           <!-- Dynamically generated semester cards -->
+        </div>
       </section>
 
       <!-- Timetable Maker View Panel -->
       <section class="view-panel" id="view-timetable">
         <div class="view-header" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <div>
-            <h1 id="page-title">Timetable Planner</h1>
-            <p id="page-subtitle">Design weekly course schedules, detect lecture clashes, export to Google Calendar & PDF.</p>
+            <h1 class="section-duplicate-title">Timetable Planner</h1>
+            <p class="section-duplicate-subtitle">Design weekly course schedules, detect lecture clashes, export to Google Calendar & PDF.</p>
           </div>
           <div id="timetable-header-actions" style="display: none; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
             <button id="btn-import-pdf-header" class="btn btn-secondary" style="display: flex; align-items: center; gap: 0.5rem; height: 38px; border-radius: 8px;">
@@ -674,13 +715,13 @@
         </div>
 
         <!-- Step 1: Degree Select Container -->
-        <div id="timetable-setup-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; text-align: center; gap: 1.5rem; border: 1px solid var(--border-color); background: rgba(18, 19, 35, 0.45); border-radius: 16px; backdrop-filter: blur(8px); padding: 2rem;">
-          <div style="font-size: 1.5rem; font-weight: 700; color: white;">Select your degree so we can help build your timetable:</div>
-          <select id="timetable-degree-select" class="form-control" style="width: 320px; text-align: center; font-size: 1rem; padding: 0.75rem; background: rgba(18, 19, 35, 0.85); border: 1px solid var(--border-color); border-radius: 8px; color: white;">
+        <div id="timetable-setup-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; text-align: center; gap: 1.5rem; border: 1px solid var(--border-color); background: var(--bg-card); border-radius: 16px; backdrop-filter: blur(8px); padding: 2rem;">
+          <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">Select your degree so we can help build your timetable:</div>
+          <select id="timetable-degree-select" class="form-control" style="width: 320px; text-align: center; font-size: 1rem; padding: 0.75rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
             <option value="A7">A7: B.E. Computer Science</option>
             <option value="A3">A3: B.E. Electrical & Electronics</option>
           </select>
-          <button id="btn-submit-timetable-degree" class="btn btn-primary" style="padding: 0.75rem 2.5rem; font-size: 1rem; border-radius: 8px;">Submit</button>
+          <button id="btn-submit-timetable-degree" class="btn btn-primary" style="padding: 0.75rem 2.5rem; font-size: 1rem; border-radius: 8px;">Build my timetable <i data-lucide="arrow-right"></i></button>
           
           <div style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; max-width: 320px;">
             <div style="font-size: 0.9rem; color: var(--text-secondary);">Or upload BITS Timetable PDF:</div>
@@ -696,17 +737,17 @@
           
           <!-- Timetable Stats Bar -->
           <div id="timetable-stats-bar" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-            <div style="background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: flex; align-items: center; gap: 1rem; backdrop-filter: blur(8px);">
+            <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: flex; align-items: center; gap: 1rem; backdrop-filter: blur(8px);">
               <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(59, 130, 246, 0.15); color: var(--color-accent); display: flex; align-items: center; justify-content: center;">
                 <i data-lucide="clock"></i>
               </div>
               <div>
                 <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Weekly Hours</div>
-                <div id="stat-total-hours" style="font-size: 1.25rem; font-weight: 700; color: white;">0 Hours</div>
+                <div id="stat-total-hours" style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">0 Hours</div>
               </div>
             </div>
 
-            <div style="background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: flex; align-items: center; gap: 1rem; backdrop-filter: blur(8px);">
+            <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: flex; align-items: center; gap: 1rem; backdrop-filter: blur(8px);">
               <div id="stat-clash-icon-box" style="width: 42px; height: 42px; border-radius: 10px; background: rgba(16, 185, 129, 0.15); color: var(--color-emerald); display: flex; align-items: center; justify-content: center;">
                 <i data-lucide="shield-check"></i>
               </div>
@@ -716,13 +757,13 @@
               </div>
             </div>
 
-            <div style="background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: flex; align-items: center; gap: 1rem; backdrop-filter: blur(8px);">
+            <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: flex; align-items: center; gap: 1rem; backdrop-filter: blur(8px);">
               <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(245, 158, 11, 0.15); color: #f59e0b; display: flex; align-items: center; justify-content: center;">
                 <i data-lucide="coffee"></i>
               </div>
               <div>
                 <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Free Days</div>
-                <div id="stat-free-days" style="font-size: 1.25rem; font-weight: 700; color: white;">None</div>
+                <div id="stat-free-days" style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">None</div>
               </div>
             </div>
           </div>
@@ -732,15 +773,15 @@
             
             <!-- Left Column: Course Search & Selectors -->
             <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 1rem;">
-              <div class="sidebar-card" style="padding: 1.25rem; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 1rem;">
+              <div class="sidebar-card" style="padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 1rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
-                  <h3 style="font-size: 1.1rem; font-weight: 700; color: white; margin: 0;">Course Sections</h3>
+                  <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin: 0;">Course Sections</h3>
                   <button id="btn-reset-timetable" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; border-color: rgba(239, 68, 68, 0.4); color: var(--color-rose);">Reset</button>
                 </div>
                 
                 <!-- Search Input -->
                 <div style="position: relative;">
-                  <input type="text" id="timetable-course-search" placeholder="Search course or code..." class="form-control" style="padding-left: 2.25rem; font-size: 0.85rem; height: 36px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 8px; color: white; width: 100%;">
+                  <input type="text" id="timetable-course-search" placeholder="Search course or code..." class="form-control" style="padding-left: 2.25rem; font-size: 0.85rem; height: 36px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); width: 100%;">
                   <i data-lucide="search" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--text-secondary);"></i>
                 </div>
 
@@ -752,9 +793,9 @@
 
             <!-- Right Column: Timetable Grid -->
             <div style="flex: 2; min-width: 480px; display: flex; flex-direction: column; gap: 1rem;">
-              <div class="sidebar-card" style="padding: 1.25rem; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); overflow-x: auto;">
+              <div class="sidebar-card" style="padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); overflow-x: auto;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
-                  <h3 id="timetable-grid-title" style="font-size: 1.1rem; font-weight: 700; color: white; margin: 0;">Weekly Timetable Grid</h3>
+                  <h3 id="timetable-grid-title" style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin: 0;">Weekly Timetable Grid</h3>
                   <div style="display: flex; gap: 0.5rem; font-size: 0.7rem;">
                     <span style="display: inline-flex; align-items: center; gap: 0.25rem; color: #60a5fa;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3b82f6;"></span> Lecture</span>
                     <span style="display: inline-flex; align-items: center; gap: 0.25rem; color: #f59e0b;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;"></span> Tutorial</span>
@@ -783,9 +824,9 @@
               </div>
 
               <!-- Exam Dates & Schedule Panel -->
-              <div class="sidebar-card" id="timetable-exam-panel" style="padding: 1.25rem; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px);">
+              <div class="sidebar-card" id="timetable-exam-panel" style="padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px);">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; margin-bottom: 1rem;">
-                  <h3 style="font-size: 1.1rem; font-weight: 700; color: white; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                  <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
                     <i data-lucide="file-text" style="color: var(--color-accent);"></i> Exam Schedule (Midsem & Compre)
                   </h3>
                   <span style="font-size: 0.75rem; color: var(--text-secondary);">Parsed from Timetable PDF</span>
@@ -808,8 +849,8 @@
       <section class="view-panel" id="view-resources">
         <div class="view-header" style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
           <div>
-            <h1 id="page-title">Resources Directory</h1>
-            <p id="page-subtitle">A spreadsheet to store, organize, and edit helpful reference links and descriptions.</p>
+            <h1 class="section-duplicate-title">Resources Directory</h1>
+            <p class="section-duplicate-subtitle">A spreadsheet to store, organize, and edit helpful reference links and descriptions.</p>
           </div>
           <div>
             <button id="btn-add-resource" class="btn btn-primary" style="display: flex; align-items: center; gap: 0.5rem; height: 38px; border-radius: 8px;">
@@ -818,7 +859,7 @@
           </div>
         </div>
 
-        <div class="sidebar-card" style="padding: 1.5rem; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 1rem;">
+        <div class="sidebar-card" style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 1rem;">
           
           <!-- Spreadsheet Container -->
           <div style="width: 100%; max-height: 520px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; background: rgba(0,0,0,0.2);">
@@ -847,51 +888,38 @@
       <section class="view-panel" id="view-settings">
         <div class="view-header" style="margin-bottom: 2rem;">
           <div>
-            <h1 id="page-title">Settings & Sync</h1>
-            <p id="page-subtitle">Export, backup, and sync your dashboard data across multiple devices.</p>
+            <h1 class="section-duplicate-title">Settings & Sync</h1>
+            <p class="section-duplicate-subtitle">Export, backup, and sync your dashboard data across multiple devices.</p>
           </div>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
           
-          <!-- Cloud Auto-Sync Configuration Card -->
-          <div class="sidebar-card" style="padding: 1.5rem; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 1.25rem;">
-            <h3 style="font-size: 1.15rem; font-weight: 600; color: white; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; margin: 0;">
-              <i data-lucide="cloud" style="color: var(--color-purple);"></i> Automatic Cloud Sync
-            </h3>
-            
-            <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
-              Enable real-time automatic cloud synchronization. Any changes you make will be automatically uploaded and synced to your other devices using your private Sync Key.
-            </p>
-            
-            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-              <div style="display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 0.85rem; font-weight: 600; color: white;">Sync Status</span>
-                <span id="cloud-sync-status" style="background: rgba(239, 68, 68, 0.15); color: var(--color-rose); padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;">Disabled</span>
-              </div>
-              
-              <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                <label style="font-size: 0.75rem; color: var(--text-secondary);">Your Private Sync Key</label>
-                <div style="display: flex; gap: 0.5rem;">
-                  <input type="text" id="input-cloud-sync-key" placeholder="Enter a unique sync key..." style="flex: 1; font-size: 0.85rem; padding: 0.5rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; color: white; font-family: monospace;">
-                  <button id="btn-generate-sync-key" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; height: auto;">Generate</button>
-                </div>
-              </div>
-              
-              <button id="btn-toggle-cloud-sync" class="btn btn-primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 0.5rem;">
-                <i data-lucide="cloud-lightning"></i> Enable Cloud Auto-Sync
-              </button>
-            </div>
+          <div class="sidebar-card account-sync-card">
+            <h3><i data-lucide="cloud-check"></i> Your cloud workspace</h3>
+            <p id="backend-account"></p>
+            <p id="cloud-sync-status" role="status">Connecting…</p>
+            <p>Your courses, notes, calendar, grades, and timetable are saved to your account. Uploaded files stay in your private material vault.</p>
+            <button class="btn btn-primary" id="btn-sync-now">Sync now</button>
+            <button class="btn btn-secondary" id="btn-reload-cloud" hidden>Load cloud version</button>
+            <p class="backup-note">Download a backup before loading the cloud version if this device has unsaved changes.</p>
+          </div>
+          <div class="sidebar-card account-sync-card" id="browser-migration-card" hidden>
+            <h3><i data-lucide="import"></i> Bring your existing work</h3>
+            <p>Move the courses, notes, calendar, and files saved in this browser into your account. Start with an empty account; your local originals will be kept.</p>
+            <button class="btn btn-secondary" id="btn-migrate-local">Import this browser’s workspace</button>
+            <button class="btn btn-secondary" id="btn-retry-file-import" hidden>Retry remaining files</button>
+            <p id="migration-result" role="status"></p>
           </div>
 
           <!-- Manual Backup & Text Sync Options -->
-          <div class="sidebar-card" style="padding: 1.5rem; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 1.25rem;">
-            <h3 style="font-size: 1.15rem; font-weight: 600; color: white; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; margin: 0;">
+          <div class="sidebar-card" style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 1.25rem;">
+            <h3 style="font-size: 1.15rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; margin: 0;">
               <i data-lucide="refresh-cw" style="color: var(--color-emerald);"></i> Manual File Backup
             </h3>
             
             <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
-              Prefer local backups? Download a file snapshot of your settings or copy the raw code representation.
+              Download a backup of your courses, notes, calendar, timetable, and saved links. Files in your material vault are downloaded separately.
             </p>
             
             <div style="border-top: 1px solid var(--border-color); padding-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
@@ -900,19 +928,19 @@
               </button>
               
               <button id="btn-copy-sync-code" class="btn btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-                <i data-lucide="copy"></i> Copy Text Sync Code
+                <i data-lucide="copy"></i> Copy Backup Code
               </button>
             </div>
           </div>
           
           <!-- Import Restore Card -->
-          <div class="sidebar-card" style="padding: 1.5rem; background: rgba(18, 19, 35, 0.45); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 1.25rem;">
-            <h3 style="font-size: 1.15rem; font-weight: 600; color: white; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; margin: 0;">
+          <div class="sidebar-card" style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 1.25rem;">
+            <h3 style="font-size: 1.15rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; margin: 0;">
               <i data-lucide="upload" style="color: var(--color-emerald);"></i> Restore / Sync Data
             </h3>
             
             <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
-              Restore your dashboard configuration by uploading your backup file or pasting your text sync code.
+              Restore a workspace backup from a file or backup code. You will be asked before existing workspace data is replaced.
             </p>
             
             <div style="display: flex; flex-direction: column; gap: 1rem;">
@@ -924,7 +952,7 @@
               
               <!-- Text code restore -->
               <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.25rem;">
-                <textarea id="text-sync-code-input" placeholder="Paste your text sync code here..." style="width: 100%; height: 60px; font-family: monospace; font-size: 0.75rem; padding: 0.5rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; color: white; resize: none;"></textarea>
+                <textarea id="text-sync-code-input" placeholder="Paste your text sync code here..." style="width: 100%; height: 60px; font-family: monospace; font-size: 0.75rem; padding: 0.5rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); resize: none;"></textarea>
                 <button id="btn-submit-sync-code" class="btn btn-primary btn-sm" style="width: 100%;">Apply Sync Code</button>
               </div>
             </div>
@@ -1123,49 +1151,49 @@
           <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
             <div class="form-group">
               <label class="form-label">Course Code *</label>
-              <input type="text" class="form-control" id="custom-course-code" required placeholder="e.g. CS F301" style="background: rgba(18, 19, 35, 0.85); color: white;">
+              <input type="text" class="form-control" id="custom-course-code" required placeholder="e.g. CS F301" style="background: var(--bg-card); color: var(--text-primary);">
             </div>
             <div class="form-group">
               <label class="form-label">Course Title *</label>
-              <input type="text" class="form-control" id="custom-course-title" required placeholder="e.g. Principles of Prog Lang" style="background: rgba(18, 19, 35, 0.85); color: white;">
+              <input type="text" class="form-control" id="custom-course-title" required placeholder="e.g. Principles of Prog Lang" style="background: var(--bg-card); color: var(--text-primary);">
             </div>
           </div>
 
           <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
             <div class="form-group">
               <label class="form-label">Section Type & Name *</label>
-              <input type="text" class="form-control" id="custom-section-name" required placeholder="e.g. L1 or T1 or P1" style="background: rgba(18, 19, 35, 0.85); color: white;">
+              <input type="text" class="form-control" id="custom-section-name" required placeholder="e.g. L1 or T1 or P1" style="background: var(--bg-card); color: var(--text-primary);">
             </div>
             <div class="form-group">
               <label class="form-label">Instructor Name</label>
-              <input type="text" class="form-control" id="custom-section-instructor" placeholder="e.g. Prof. Sharma" style="background: rgba(18, 19, 35, 0.85); color: white;">
+              <input type="text" class="form-control" id="custom-section-instructor" placeholder="e.g. Prof. Sharma" style="background: var(--bg-card); color: var(--text-primary);">
             </div>
           </div>
 
           <div class="form-group">
             <label class="form-label">Days *</label>
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-              <label style="display: flex; align-items: center; gap: 0.35rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-days" value="M"> Mon</label>
-              <label style="display: flex; align-items: center; gap: 0.35rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-days" value="T"> Tue</label>
-              <label style="display: flex; align-items: center; gap: 0.35rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-days" value="W"> Wed</label>
-              <label style="display: flex; align-items: center; gap: 0.35rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-days" value="Th"> Thu</label>
-              <label style="display: flex; align-items: center; gap: 0.35rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-days" value="F"> Fri</label>
-              <label style="display: flex; align-items: center; gap: 0.35rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-days" value="S"> Sat</label>
+              <label style="display: flex; align-items: center; gap: 0.35rem; color: var(--text-primary); cursor: pointer;"><input type="checkbox" name="custom-days" value="M"> Mon</label>
+              <label style="display: flex; align-items: center; gap: 0.35rem; color: var(--text-primary); cursor: pointer;"><input type="checkbox" name="custom-days" value="T"> Tue</label>
+              <label style="display: flex; align-items: center; gap: 0.35rem; color: var(--text-primary); cursor: pointer;"><input type="checkbox" name="custom-days" value="W"> Wed</label>
+              <label style="display: flex; align-items: center; gap: 0.35rem; color: var(--text-primary); cursor: pointer;"><input type="checkbox" name="custom-days" value="Th"> Thu</label>
+              <label style="display: flex; align-items: center; gap: 0.35rem; color: var(--text-primary); cursor: pointer;"><input type="checkbox" name="custom-days" value="F"> Fri</label>
+              <label style="display: flex; align-items: center; gap: 0.35rem; color: var(--text-primary); cursor: pointer;"><input type="checkbox" name="custom-days" value="S"> Sat</label>
             </div>
           </div>
 
           <div class="form-group">
             <label class="form-label">Hour Slots (1 to 9) *</label>
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-              <label style="display: flex; align-items: center; gap: 0.25rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-hours" value="1"> H1 (8am)</label>
-              <label style="display: flex; align-items: center; gap: 0.25rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-hours" value="2"> H2 (9am)</label>
-              <label style="display: flex; align-items: center; gap: 0.25rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-hours" value="3"> H3 (10am)</label>
-              <label style="display: flex; align-items: center; gap: 0.25rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-hours" value="4"> H4 (11am)</label>
-              <label style="display: flex; align-items: center; gap: 0.25rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-hours" value="5"> H5 (12pm)</label>
-              <label style="display: flex; align-items: center; gap: 0.25rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-hours" value="6"> H6 (1pm)</label>
-              <label style="display: flex; align-items: center; gap: 0.25rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-hours" value="7"> H7 (2pm)</label>
-              <label style="display: flex; align-items: center; gap: 0.25rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-hours" value="8"> H8 (3pm)</label>
-              <label style="display: flex; align-items: center; gap: 0.25rem; color: white; cursor: pointer;"><input type="checkbox" name="custom-hours" value="9"> H9 (4pm)</label>
+              <label style="display: flex; align-items: center; gap: 0.25rem; color: var(--text-primary); cursor: pointer;"><input type="checkbox" name="custom-hours" value="1"> H1 (8am)</label>
+              <label style="display: flex; align-items: center; gap: 0.25rem; color: var(--text-primary); cursor: pointer;"><input type="checkbox" name="custom-hours" value="2"> H2 (9am)</label>
+              <label style="display: flex; align-items: center; gap: 0.25rem; color: var(--text-primary); cursor: pointer;"><input type="checkbox" name="custom-hours" value="3"> H3 (10am)</label>
+              <label style="display: flex; align-items: center; gap: 0.25rem; color: var(--text-primary); cursor: pointer;"><input type="checkbox" name="custom-hours" value="4"> H4 (11am)</label>
+              <label style="display: flex; align-items: center; gap: 0.25rem; color: var(--text-primary); cursor: pointer;"><input type="checkbox" name="custom-hours" value="5"> H5 (12pm)</label>
+              <label style="display: flex; align-items: center; gap: 0.25rem; color: var(--text-primary); cursor: pointer;"><input type="checkbox" name="custom-hours" value="6"> H6 (1pm)</label>
+              <label style="display: flex; align-items: center; gap: 0.25rem; color: var(--text-primary); cursor: pointer;"><input type="checkbox" name="custom-hours" value="7"> H7 (2pm)</label>
+              <label style="display: flex; align-items: center; gap: 0.25rem; color: var(--text-primary); cursor: pointer;"><input type="checkbox" name="custom-hours" value="8"> H8 (3pm)</label>
+              <label style="display: flex; align-items: center; gap: 0.25rem; color: var(--text-primary); cursor: pointer;"><input type="checkbox" name="custom-hours" value="9"> H9 (4pm)</label>
             </div>
           </div>
         </div>
@@ -1180,6 +1208,8 @@
   <!-- Toast notification container -->
   <div id="toast-container" style="position: fixed; bottom: 2rem; right: 2rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.75rem; pointer-events: none;"></div>
 
-  <script src="script.js"></script>
+  <script src="vendor/supabase.js"></script>
+  <script src="backend-config.js"></script>
+  <script type="module" src="script.js"></script>
 </body>
 </html>
