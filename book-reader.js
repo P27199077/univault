@@ -82,7 +82,7 @@ export class BookReader {
     this.tabs.forEach((tab,i)=>{const active=tab.dataset.bookSection===section;tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;if(active)document.getElementById('book-page-index').textContent=String(i+1).padStart(2,'0');});
     document.querySelectorAll('.book-content-panel').forEach(panel=>panel.hidden=panel.id!==`book-section-${section}`);
     document.getElementById('book-running-title').textContent=entry.name;
-    if(autoPreview&&section==='handouts'){const first=sectionFiles(this.files,this.course,section)[0];if(first)this.preview(first);}
+    if(autoPreview){const files=sectionFiles(this.files,this.course,section);if(files.length===1)this.preview(files[0]);}
     if(animated&&!reduced()){
       animate.killTweensOf(this.leaf);this.leaf.hidden=false;
       animate.fromTo(this.leaf,{rotationY:0,opacity:.8},{rotationY:-165,opacity:0,duration:.35,ease:'power2.inOut',onComplete:()=>{this.leaf.hidden=true;}});
