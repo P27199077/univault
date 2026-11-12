@@ -149,6 +149,19 @@ export function createBackend({client = null, storage, onStatus = () => {}, dela
     return {user,needsConfirmation:!data.session};
   }
 
+  async function signInWithGoogle(redirectTo) {
+    if (user) throw new Error('Sign out before switching accounts.');
+    if (!client) throw new Error('Cloud accounts are not connected yet.');
+    const {data,error} = await client.auth.signInWithOAuth({
+      provider:'google',
+      options:{redirectTo,skipBrowserRedirect:true,queryParams:{prompt:'select_account'}}
+    });
+    if (error) throw error;
+    if (!data?.url) throw new Error('Could not start Google sign-in. Please try again.');
+    // A redirect is not a session. initialize() opens the account only after Supabase returns one.
+    return data.url;
+  }
+
   async function flush() {
     clearTimeout(timer);
     if (!user || !ready || !dirty) return;
@@ -294,7 +307,7 @@ export function createBackend({client = null, storage, onStatus = () => {}, dela
   }
 
   return {
-    workspaceStorage, initialize, signIn, signUp, signOut, flush, reloadCloud,
+    workspaceStorage, initialize, signIn, signUp, signInWithGoogle, signOut, flush, reloadCloud,
     snapshot, legacySnapshot, importLegacy, storeFile, deleteFile, downloadFile,
     listFiles:courseId => fileList.filter(file => !courseId || file.courseId === courseId),
     get user() {return user;}, get configured() {return !!client;},

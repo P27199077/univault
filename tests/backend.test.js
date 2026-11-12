@@ -134,6 +134,41 @@ test('email confirmation does not grant a signed-in application session',async (
   assert.equal(result.needsConfirmation,true);assert.equal(f.backend.signedIn,false);
 });
 
+test('Google sign-in requests only account login and waits for a returned session',async () => {
+  const f=fixture();f.setSignedOut();await f.backend.initialize();
+  let request;
+  f.client.auth.signInWithOAuth=async options => {
+    request=options;
+    return {data:{url:'https://example.invalid/authorize'}};
+  };
+  assert.equal(await f.backend.signInWithGoogle('https://univault.example/'),'https://example.invalid/authorize');
+  assert.deepEqual(request,{
+    provider:'google',options:{redirectTo:'https://univault.example/',skipBrowserRedirect:true,queryParams:{prompt:'select_account'}}
+  });
+  assert.equal(f.backend.signedIn,false);
+  assert.equal(f.shared.size,0);
+  // The next page load obtains the session from Supabase, then loads the same private workspace.
+  const returned=fixture('google-user',f.shared,f.storage);
+  await returned.backend.initialize();
+  assert.equal(returned.backend.user.id,'google-user');
+  assert.deepEqual(JSON.parse(returned.backend.workspaceStorage.getItem('univault_courses')),[]);
+});
+
+test('failed Google sign-in never grants an account or changes local content',async () => {
+  const f=fixture();f.setSignedOut();await f.backend.initialize();
+  f.storage.setItem('univault_courses','["local course"]');
+  f.client.auth.signInWithOAuth=async () => ({error:new Error('Provider unavailable')});
+  await assert.rejects(f.backend.signInWithGoogle('http://localhost:3000/'),/Provider unavailable/);
+  assert.equal(f.backend.signedIn,false);
+  assert.equal(f.storage.getItem('univault_courses'),'["local course"]');
+  f.client.auth.signInWithOAuth=async () => ({data:{}});
+  await assert.rejects(f.backend.signInWithGoogle('http://localhost:3000/'),/Could not start/);
+  const active=fixture();await active.backend.initialize();
+  await assert.rejects(active.backend.signInWithGoogle('http://localhost:3000/'),/Sign out/);
+  const local=createBackend({storage:new MemoryStorage()});
+  await assert.rejects(local.signInWithGoogle('http://localhost:3000/'),/not connected/);
+});
+
 test('logout refuses to abandon failed saves and clears synced account cache only',async () => {
   const f=fixture();f.storage.setItem('univault_courses','["legacy stays"]');
   await f.backend.initialize();

@@ -1,6 +1,9 @@
 import {createBackend, WORKSPACE_KEYS, validateSnapshot} from './backend.js';
 
 const config = window.UNIVAULT_CONFIG || {};
+const authReturnUrl = new URL(window.location.href);
+const authReturnHash = new URLSearchParams(authReturnUrl.hash.slice(1));
+const authReturnError = authReturnUrl.searchParams.get('error') || authReturnHash.get('error');
 const backendClient = config.supabaseUrl && config.supabasePublishableKey && window.supabase
   ? window.supabase.createClient(config.supabaseUrl, config.supabasePublishableKey, {auth:{storageKey:'univault-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}})
   : null;
@@ -8,6 +11,7 @@ let lastCloudStatus = {state:'local',message:'Saved on this device only'};
 const backend = createBackend({client:backendClient,storage:window.localStorage,onStatus:updateBackendStatus});
 const workspaceStorage = backend.workspaceStorage;
 let authInitialized = false;
+let authRequestPending = false;
 
 // UniVault Database and State Management Script
 
@@ -51,12 +55,31 @@ async function initAuth() {
   document.querySelector('.app-container').style.display = signedIn ? 'flex' : 'none';
   document.getElementById('cloud-unconfigured').hidden = backend.configured;
   document.getElementById('form-signin').hidden = !backend.configured;
+  document.querySelectorAll('.google-auth-option').forEach(option => {option.hidden = !backend.configured;});
   document.querySelector('#panel-signin .auth-switch').hidden = !backend.configured;
   const name = backend.user?.email || 'On this device';
   document.getElementById('sidebar-username').textContent = name;
   document.getElementById('sidebar-user-avatar').textContent = backend.user ? name[0].toUpperCase() : 'U';
   document.querySelector('.user-role').textContent = backend.signedIn ? 'Personal account' : 'Local workspace';
   updateBackendStatus(lastCloudStatus);
+  if (authReturnError) {
+    showAuthAlert(authReturnError === 'access_denied'
+      ? 'Google sign-in was cancelled or access was declined. Try again, or sign in with email.'
+      : 'Sign-in could not be completed. Please try again or use email.');
+    for (const key of ['error','error_code','error_description']) {
+      authReturnUrl.searchParams.delete(key);
+      authReturnHash.delete(key);
+    }
+    authReturnUrl.hash = authReturnHash.toString();
+    window.history.replaceState(null,'',authReturnUrl.pathname + authReturnUrl.search + authReturnUrl.hash);
+  }
+}
+
+function setAuthBusy(busy) {
+  authRequestPending = busy;
+  const login = document.getElementById('login-container');
+  login.setAttribute('aria-busy',String(busy));
+  login.querySelectorAll('button').forEach(button => {button.disabled = busy;});
 }
 
 function showAuthAlert(text, isSuccess = false) {
@@ -2177,6 +2200,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-migrate-local').addEventListener('click', importBrowserWorkspace);
   document.getElementById('btn-retry-file-import').addEventListener('click', importBrowserWorkspace);
   document.getElementById('btn-continue-local').addEventListener('click', () => {
+    if (authRequestPending) return;
     sessionStorage.setItem('univault-guest','true');
     window.location.reload();
   });
@@ -2570,54 +2594,85 @@ window.addEventListener('DOMContentLoaded', async () => {
   
   linkGotoSignup.addEventListener('click', (e) => {
     e.preventDefault();
+    if (authRequestPending) return;
     hideAuthAlert();
     panelSignin.style.display = 'none';
     panelSignup.style.display = 'flex';
+    requestAnimationFrame(() => {document.getElementById('login-container').scrollTop = 0;});
   });
   
   linkGotoSignin.addEventListener('click', (e) => {
     e.preventDefault();
+    if (authRequestPending) return;
     hideAuthAlert();
     panelSignup.style.display = 'none';
     panelSignin.style.display = 'flex';
+    requestAnimationFrame(() => {document.getElementById('login-container').scrollTop = 0;});
   });
   
   // Account passwords go directly to Supabase Auth and are never stored by the app.
+  document.querySelectorAll('.btn-google').forEach(button => {
+    button.addEventListener('click', async () => {
+      if (authRequestPending) return;
+      hideAuthAlert();
+      setAuthBusy(true);
+      const label = button.querySelector('span');
+      label.textContent = 'Connecting to Google…';
+      try {
+        // The SDK builds an OAuth URL even for a disabled provider. Check first so users stay on this page.
+        const response = await fetch(`${config.supabaseUrl}/auth/v1/settings`, {
+          headers:{apikey:config.supabasePublishableKey}, signal:AbortSignal.timeout(10000)
+        });
+        if (!response.ok) throw new Error('Could not connect to sign-in. Please check your connection and try again.');
+        const settings = await response.json();
+        if (!settings.external?.google) throw new Error('Google sign-in is not available yet. Please sign in with email for now.');
+        const url = await backend.signInWithGoogle(new URL('.',window.location.href).href);
+        sessionStorage.removeItem('univault-guest');
+        window.location.assign(url);
+      } catch (error) {
+        showAuthAlert(error instanceof TypeError || error.name === 'TimeoutError'
+          ? 'Could not connect to Google sign-in. Please check your connection and try again.' : error.message);
+        setAuthBusy(false);
+        label.textContent = 'Continue with Google';
+      }
+    });
+  });
   document.getElementById('form-signin').addEventListener('submit', async event => {
     event.preventDefault();
+    if (authRequestPending) return;
     hideAuthAlert();
     const form = event.currentTarget;
-    const button = form.querySelector('[type="submit"]');
-    button.disabled = true;
+    setAuthBusy(true);
     try {
       await backend.signIn(document.getElementById('signin-username').value.trim(),document.getElementById('signin-password').value);
       sessionStorage.removeItem('univault-guest');
       form.reset();
       window.location.reload();
     } catch (error) {showAuthAlert(error.message);}
-    finally {button.disabled = false;}
+    finally {setAuthBusy(false);}
   });
   document.getElementById('form-signup').addEventListener('submit', async event => {
     event.preventDefault();
+    if (authRequestPending) return;
     hideAuthAlert();
     const form = event.currentTarget;
     const password = document.getElementById('signup-password').value;
     if (password !== document.getElementById('signup-confirm-password').value) {showAuthAlert('Passwords do not match.'); return;}
-    const button = form.querySelector('[type="submit"]');
-    button.disabled = true;
+    setAuthBusy(true);
     try {
       const result = await backend.signUp(document.getElementById('signup-username').value.trim(),password,new URL('.',window.location.href).href);
       form.reset();
       if (result.needsConfirmation) {
         panelSignup.style.display = 'none';
         panelSignin.style.display = 'flex';
+        requestAnimationFrame(() => {document.getElementById('login-container').scrollTop = 0;});
         showAuthAlert('Check your email to confirm your account, then return here to sign in.',true);
       } else {
         sessionStorage.removeItem('univault-guest');
         window.location.reload();
       }
     } catch (error) {showAuthAlert(error.message);}
-    finally {button.disabled = false;}
+    finally {setAuthBusy(false);}
   });
 
   // Import BITS sheet pdf triggers
@@ -2709,7 +2764,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       window.location.reload();
     } catch (error) {showToast('Your changes have not synced yet. Reconnect and sync before signing out.','error');}
   });
-  for (const id of ['form-signin','form-signup']) document.getElementById(id).querySelector('[type="submit"]').disabled = false;
+  setAuthBusy(false);
 
 });
 
