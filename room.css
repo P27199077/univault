@@ -256,3 +256,12 @@
 .book-opening-cover {pointer-events:none;}
 .sidebar {top:0;left:0;}
 .book-page-turn-leaf {position:absolute;inset:0;z-index:8;pointer-events:none;transform-origin:left center;backface-visibility:hidden;background:linear-gradient(90deg,#d5c09b,#fff3dc 8%,#f1dfbc);box-shadow:5px 0 18px #71502c2b;border-radius:0 3px 3px 0;}
+/* Object labels are projected from the room, so they stay with the actual props. */
+.room-object-anchored {translate:-50% 0;}
+.room-object-notepad, .room-object-journal, .room-object-planner {padding:8px 10px;}
+.room-object-notepad small, .room-object-journal small, .room-object-planner small {display:none;}
+.room-object-notepad strong, .room-object-journal strong {font-size:11px;}
+.room-object-notepad > svg, .room-object-journal > svg {width:16px;height:16px;}
+.room-object-anchored {width:max-content;max-width:calc(100% - 24px);}
+.room-object-anchored strong {white-space:nowrap;}
+@media (max-width:700px) {.room-object-shelf small {display:none;}}

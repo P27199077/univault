@@ -4190,7 +4190,7 @@ function setStudyView(mode,animated=true) {
 }
 function initializeStudyRoom() {
   bookReader=new BookReader({getBlob:async file=>file.content || await backend.downloadFile(file),download:downloadFileRecord,onEdit:openCourseModal});
-  try {studyRoom=new StudyRoom(document.getElementById('room-canvas-wrap'),document.getElementById('room-stage'),{onShelf:()=>setStudyView('shelf')});studyRoom.update(state.semesters,state.courses);}
+  try {studyRoom=new StudyRoom(document.getElementById('room-canvas-wrap'),document.getElementById('room-stage'),{onShelf:()=>setStudyView('shelf'),onNavigate:handleNavigation});studyRoom.update(state.semesters,state.courses);}
   catch(error){document.getElementById('room-stage').classList.add('room-unavailable');console.warn('Room rendering is unavailable; the accessible bookshelf remains available.');}
   document.body.classList.add('in-study-room');
 }
