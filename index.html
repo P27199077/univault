@@ -3,10 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UniVault - Interactive Student Dashboard</title>
+  <title>UniVault — Your little study</title>
   <meta name="description" content="Manage your university semesters, courses, slides, and class notes in an interactive dashboard.">
-  <meta name="theme-color" content="#176052">
+  <meta name="theme-color" content="#734a35">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="study.css">
+  <link rel="preload" as="image" href="assets/cozy-study.webp">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="pdf.min.js"></script>
@@ -23,10 +25,14 @@
 
   <!-- Login Container -->
   <div class="login-wrapper" id="login-container">
+    <div class="study-welcome" aria-label="A warm mid-century study with a wooden desk, bookshelves, and an olive chair">
+      <div class="study-welcome-label"><span class="study-sun" aria-hidden="true">✳</span> A PLACE TO MAKE YOURSELF AT HOME</div>
+      <div class="study-welcome-copy"><span class="eyebrow">THE UNIVAULT STUDY</span><h1>A little space.<br>A world of possibility.</h1><p>Settle in. Your next chapter starts here.</p></div>
+    </div>
     <div class="login-card">
       <div class="login-brand">
         <div class="brand-icon">
-          <i data-lucide="layers" style="color: white;"></i>
+          <i data-lucide="armchair" style="color: white;"></i>
         </div>
         <span class="brand-name">UniVault</span>
       </div>
@@ -38,8 +44,8 @@
 
       <!-- Sign In Form Panel -->
       <div class="auth-panel" id="panel-signin">
-        <p class="eyebrow auth-eyebrow">LESS CLUTTER. MORE CLARITY.</p><h2 class="auth-title">Welcome to your workspace.</h2>
-        <p class="auth-subtitle">Sign in to your private university workspace.</p>
+        <p class="eyebrow auth-eyebrow">COME ON IN.</p><h2 class="auth-title">Your desk is waiting.</h2>
+        <p class="auth-subtitle">A cozy home for your courses, plans, and progress.</p>
         
         <div class="setup-notice" id="cloud-unconfigured" hidden>Cloud accounts are not connected yet. You can continue on this device while setup is completed.</div>
         <div class="google-auth-option">
@@ -111,18 +117,18 @@
       <button class="sidebar-close menu-toggle" id="sidebar-close" aria-label="Close navigation"><i data-lucide="x"></i></button>
       <div class="brand">
         <div class="brand-icon">
-          <i data-lucide="layers" style="color: white;"></i>
+          <i data-lucide="armchair" style="color: white;"></i>
         </div>
         <span class="brand-name">UniVault</span>
       </div>
 
       <nav aria-label="Main navigation">
-        <p class="nav-section-label">YOUR WORKSPACE</p>
+        <p class="nav-section-label">AROUND YOUR STUDY</p>
         <ul class="nav-links">
           <li class="nav-item active" id="nav-dashboard-li">
             <button id="nav-dashboard">
-              <i data-lucide="layout-dashboard"></i>
-              <span>Dashboard</span>
+              <i data-lucide="armchair"></i>
+              <span>My study</span>
             </button>
           </li>
           <li class="nav-item" id="nav-materials-li">
@@ -143,7 +149,7 @@
               <span>Today’s tasks</span>
             </button>
           </li>
-          <li class="nav-section-label" aria-hidden="true">ACADEMICS</li>
+          <li class="nav-section-label" aria-hidden="true">ON THE BOOKSHELF</li>
           <li class="nav-item" id="nav-attendance-li">
             <button id="nav-attendance">
               <i data-lucide="clipboard-check"></i>
@@ -168,7 +174,7 @@
               <span>Useful links</span>
             </button>
           </li>
-          <li class="nav-section-label" aria-hidden="true">PREFERENCES</li>
+          <li class="nav-section-label" aria-hidden="true">THE LITTLE THINGS</li>
           <li class="nav-item" id="nav-settings-li">
             <button id="nav-settings">
               <i data-lucide="settings"></i>
@@ -178,6 +184,7 @@
         </ul>
       </nav>
 
+      <div class="sidebar-room-note" aria-hidden="true"><span class="room-book room-book-1"></span><span class="room-book room-book-2"></span><span class="room-book room-book-3"></span><span class="room-vase"></span><p>One page at a time.</p></div>
       <div class="sidebar-footer">
         <div class="user-profile-badge" id="sidebar-user-badge">
           <div class="user-avatar" id="sidebar-user-avatar">T</div>
@@ -199,16 +206,16 @@
     <button class="sidebar-scrim" id="sidebar-scrim" aria-label="Close navigation" hidden></button>
     <main class="main-content" id="main-content" tabindex="-1">
       <div class="workspace-topbar">
-        <div class="workspace-location"><button class="menu-toggle" id="menu-toggle" aria-label="Open navigation" aria-controls="app-sidebar" aria-expanded="false"><i data-lucide="menu"></i></button><span class="workspace-wordmark">My workspace</span><span class="topbar-divider">/</span><span id="current-location">Overview</span></div>
+        <div class="workspace-location"><button class="menu-toggle" id="menu-toggle" aria-label="Open navigation" aria-controls="app-sidebar" aria-expanded="false"><i data-lucide="menu"></i></button><span class="workspace-wordmark">The UniVault house</span><span class="topbar-divider">/</span><span id="current-location">My study</span></div>
         <div class="workspace-status"><span id="backend-status" role="status" data-state="loading">Connecting…</span><time id="workspace-date"></time></div>
       </div>
       
       <!-- Top Header -->
       <header>
         <div class="welcome">
-          <p class="eyebrow" id="page-eyebrow">A LITTLE CLARITY FOR YOUR DAY</p>
-          <h1 id="page-title">Your semester, sorted.</h1>
-          <p id="page-subtitle">All your courses, materials, and plans. One calm place.</p>
+          <p class="eyebrow" id="page-eyebrow">MAKE YOURSELF AT HOME</p>
+          <h1 id="page-title">Welcome to your study.</h1>
+          <p id="page-subtitle">A place for everything you’re learning. And a little room to breathe.</p>
         </div>
         <div class="header-actions">
           <button class="btn btn-secondary" id="btn-add-semester">
@@ -224,9 +231,11 @@
       <section class="view-panel active" id="view-dashboard">
         
         <div class="overview-banner">
-          <div class="overview-copy"><span class="banner-kicker"><span class="storage-dot"></span> ROOM TO FOCUS</span><h2><span>Big plans.</span> <span>Small steps.</span></h2><p>Keep your learning together. Pick a course and take the next step.</p><button class="banner-link" id="btn-overview-calendar">Plan your week <i data-lucide="arrow-up-right"></i></button></div>
-          <div class="focus-card"><div class="focus-heading"><span><i data-lucide="circle-check"></i> Your course checklist</span><span id="focus-count" class="focus-count">0 left</span></div><div id="focus-task-list" class="focus-task-list"></div><div class="focus-footer"><span id="focus-progress-label">Your progress</span><span id="focus-progress-value">0%</span></div><div class="focus-progress-track"><div id="focus-progress-bar"></div></div></div>
+          <div class="overview-copy"><span class="banner-kicker"><span class="study-sun" aria-hidden="true">✳</span> YOUR OWN LITTLE CORNER</span><h2>Pull up a chair.<br>Make room to grow.</h2><p>The books are here. The lamp is on.<br>Let’s take your semester one page at a time.</p><button class="banner-link" id="btn-overview-calendar">Open your planner <i data-lucide="arrow-up-right"></i></button></div>
+          <div class="study-room-view"><img class="study-room-image" src="assets/cozy-study.webp" width="1536" height="1024" alt="Sunlight fills a cozy study with a walnut desk, olive chair, warm lamp, and shelves of books." fetchpriority="high"><button type="button" class="room-bookshelf-hotspot" id="btn-open-bookshelf"><i data-lucide="library-big"></i><span>Open your bookshelf</span><i data-lucide="arrow-down-right"></i></button></div>
+          <span class="room-caption">THE STUDY · YOUR SPACE TO GROW</span>
         </div>
+        <div class="desk-summary">
         <!-- Metrics Summary Grid -->
         <div class="metrics-grid">
           <div class="metric-card purple">
@@ -267,7 +276,15 @@
           </div>
         </div>
 
-        <div class="board-section-heading"><div><p class="eyebrow">YOUR LEARNING SPACE</p><h2>Courses & semesters <span id="board-result-count" class="result-count"></span></h2></div><p>Open a course to find notes, files & tasks.</p></div>
+        <div class="focus-card"><div class="focus-heading"><span><i data-lucide="circle-check"></i> Your course checklist</span><span id="focus-count" class="focus-count">0 left</span></div><div id="focus-task-list" class="focus-task-list"></div><div class="focus-footer"><span id="focus-progress-label">Your progress</span><span id="focus-progress-value">0%</span></div><div class="focus-progress-track"><div id="focus-progress-bar"></div></div></div>
+        </div>
+        <nav class="desk-shortcuts" aria-label="Study desk shortcuts">
+          <button type="button" data-study-view="materials"><span class="desk-object"><i data-lucide="library-big"></i></span><span><strong>The filing shelf</strong><small>Notes &amp; materials</small></span><i data-lucide="arrow-up-right"></i></button>
+          <button type="button" data-study-view="calendar"><span class="desk-object"><i data-lucide="calendar-days"></i></span><span><strong>The wall calendar</strong><small>Dates &amp; plans</small></span><i data-lucide="arrow-up-right"></i></button>
+          <button type="button" data-study-view="todo"><span class="desk-object"><i data-lucide="notebook-pen"></i></span><span><strong>Your daily notepad</strong><small>Today’s tasks</small></span><i data-lucide="arrow-up-right"></i></button>
+          <button type="button" data-study-view="cgpa"><span class="desk-object"><i data-lucide="graduation-cap"></i></span><span><strong>The progress journal</strong><small>Grades &amp; CGPA</small></span><i data-lucide="arrow-up-right"></i></button>
+        </nav>
+        <div class="board-section-heading"><div><p class="eyebrow">COLLECTED ON YOUR SHELF</p><h2 id="course-shelf-heading" tabindex="-1">Your course shelf <span id="board-result-count" class="result-count"></span></h2></div><p>One shelf per semester. One book per subject.</p></div>
         <div class="board-toolbar">
           <div class="search-input-wrapper course-search"><i data-lucide="search" class="search-icon"></i><input class="form-control" id="dashboard-search" type="search" aria-label="Search courses" placeholder="Find a course or code…"></div>
           <select class="form-control" id="dashboard-semester-filter" aria-label="Filter by semester"><option value="all">All semesters</option></select>
@@ -346,7 +363,7 @@
         <!-- Detail Header -->
         <div class="course-detail-header">
           <button class="btn btn-secondary btn-sm" id="btn-back-to-dashboard">
-            <i data-lucide="arrow-left"></i> Back to Dashboard
+            <i data-lucide="arrow-left"></i> Back to My study
           </button>
           <div class="course-detail-title-row">
             <h2 id="detail-course-name">Course Name</h2>

@@ -85,3 +85,9 @@ npm test
 ```
 
 Unit tests cover account isolation, interrupted saves, simultaneous-device conflicts, email confirmation, logout, private file paths, and migration retries. Academic tests use invented records to cover column parsing, exact grades and credits, weighted GPA, non-letter reports, safe merging, and repeat uploads; no personal transcript fixture is included. `scripts/check-live-backend.mjs` is an optional live integration check requiring two disposable, confirmed test accounts supplied in a JSON file through `UNIVAULT_TEST_FIXTURES`. It never creates or emails real users. It intentionally writes test workspaces and a temporary file, so use disposable accounts only and remove them afterwards.
+
+### The UniVault study interface
+
+The interface uses a warm mid-century study theme throughout sign-in, courses, materials, planners, grades, settings, and dialogs. `study.css` contains the theme, responsive layout, walnut navigation cabinet, paper surfaces, and course shelf. Desk shortcuts open the existing tools. The bookshelf hotspot brings the course shelves into view: each semester has a shelf, each subject has a book, and hovering or focusing lifts the book before opening its course workspace. Elective placeholders appear as reserved blank volumes. Wrapped rows each retain a wooden shelf. All saved workspace IDs, records, and actions are preserved; no example courses or grades are bundled.
+
+`assets/cozy-study.webp` is the original room artwork, optimized to approximately 380 KB and reused for the welcome screen and study banner. Artwork provenance and the generation prompt are in [assets/README.md](assets/README.md). The room image is decorative context; navigation and actions use ordinary keyboard-accessible controls. Reduced-motion and print styles are included.

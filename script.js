@@ -31,12 +31,12 @@ let state = {
 
 // Colors palette for courses
 const ACCENT_COLORS = {
-  purple: '#8265ad',
-  indigo: '#5473b8',
-  blue: '#347fb0',
-  emerald: '#24856e',
-  amber: '#b98025',
-  rose: '#bf6475'
+  purple: '#926042',
+  indigo: '#777849',
+  blue: '#607b80',
+  emerald: '#687044',
+  amber: '#ab752a',
+  rose: '#a74e3c'
 };
 
 // UI DOM references
@@ -214,8 +214,8 @@ async function renderBoard() {
     container.innerHTML = `
       <div class="empty-state" style="width: 100%;">
         <div class="empty-state-icon"><i data-lucide="calendar"></i></div>
-        <div class="empty-state-title">No Semesters Configured</div>
-        <div class="empty-state-desc">Upload a performance sheet from Grades & CGPA, or create a semester to add courses yourself.</div>
+        <div class="empty-state-title">Your shelf is waiting</div>
+        <div class="empty-state-desc">Add your first semester and give your courses a home. You can also bring past records in from Grades & CGPA.</div>
         <button class="btn btn-primary btn-sm" id="btn-empty-add-sem">Create Semester</button>
       </div>
     `;
@@ -233,7 +233,7 @@ async function renderBoard() {
     return 0;
   });
   
-  // Render each semester as a Column
+  // Each semester is a shelf; course records render as clickable books.
   for (const sem of sortedSemesters) {
     const col = document.createElement('div');
     col.className = 'semester-column';
@@ -417,6 +417,7 @@ async function buildCourseCard(course) {
   card.className = course.isPlaceholder ? 'course-card elective-placeholder' : 'course-card';
   card.id = `course-card-${course.id}`;
   card.dataset.id = course.id;
+  card.style.setProperty('--book-color', ACCENT_COLORS[course.themeColor || 'indigo']);
   card.draggable = true;
   card.setAttribute('role', 'group');
   card.setAttribute('aria-label', course.name);
@@ -429,6 +430,7 @@ async function buildCourseCard(course) {
   
   // Content details
   const codeRow = document.createElement('div');
+  codeRow.className = 'course-book-topline';
   codeRow.style.display = 'flex';
   codeRow.style.justifyContent = 'space-between';
   codeRow.style.alignItems = 'center';
@@ -457,6 +459,7 @@ async function buildCourseCard(course) {
   name.className = 'course-name';
   name.setAttribute('aria-label', `Open ${course.name}`);
   name.innerText = course.name;
+  name.title = course.name;
   card.appendChild(name);
   
   // Metadata row
@@ -501,7 +504,7 @@ async function buildCourseCard(course) {
   
   const openLabel = document.createElement('span');
   openLabel.className = 'course-open-label';
-  openLabel.innerHTML = 'Open workspace <i data-lucide="arrow-up-right"></i>';
+  openLabel.innerHTML = 'Open book <i data-lucide="arrow-up-right"></i>';
   actions.appendChild(openLabel);
   actions.appendChild(editBtn);
   actions.appendChild(deleteBtn);
@@ -1022,7 +1025,7 @@ async function renderMaterialsVault() {
     const course = state.courses.find(c => c.id === f.courseId);
     const courseName = course ? course.name : 'Unknown Course';
     const courseCode = course ? course.code : 'N/A';
-    const courseColor = course ? ACCENT_COLORS[course.themeColor] : '#6366f1';
+    const courseColor = course ? ACCENT_COLORS[course.themeColor] : '#777849';
     
     const card = document.createElement('div');
     card.className = 'material-card-unified';
@@ -1174,7 +1177,8 @@ function renderThemeSelectors() {
   Object.keys(ACCENT_COLORS).forEach(col => {
     const el = document.createElement('button');
     el.type = 'button';
-    el.setAttribute('aria-label', `${col} course colour`);
+    const colourName = {purple:'Clay', indigo:'Olive', blue:'Slate', emerald:'Moss', amber:'Ochre', rose:'Terracotta'}[col];
+    el.setAttribute('aria-label', `${colourName} course colour`);
     el.setAttribute('aria-pressed', String(col === activeThemeColor));
     el.className = `theme-radio ${col === activeThemeColor ? 'selected' : ''}`;
     el.style.backgroundColor = ACCENT_COLORS[col];
@@ -1291,7 +1295,7 @@ function handleNavigation(tab) {
   closeWorkspaceNavigation();
   window.scrollTo({top: 0, behavior: 'instant'});
   document.getElementById('main-content').focus({preventScroll: true});
-  document.getElementById('current-location').textContent = ({dashboard:'Overview', materials:'My materials', calendar:'Calendar', todo:'Today’s tasks', attendance:'Attendance', cgpa:'Grades & CGPA', timetable:'Timetable', resources:'Useful links', settings:'Settings & backup', 'course-detail':'Course workspace'})[tab] || 'Overview';
+  document.getElementById('current-location').textContent = ({dashboard:'My study', materials:'My materials', calendar:'Calendar', todo:'Today’s tasks', attendance:'Attendance', cgpa:'Grades & CGPA', timetable:'Timetable', resources:'Useful links', settings:'Settings & backup', 'course-detail':'Course workspace'})[tab] || 'My study';
   document.getElementById('page-eyebrow').hidden = tab !== 'dashboard';
   document.querySelectorAll('.nav-item button').forEach(button => {
     if (button.id === `nav-${tab}` || (tab === 'course-detail' && button.id === 'nav-dashboard')) button.setAttribute('aria-current', 'page');
@@ -1386,8 +1390,8 @@ function handleNavigation(tab) {
     addCourseBtn.style.display = 'none';
     if (importBtn) importBtn.style.display = 'none';
   } else {
-    pageTitle.innerText = 'Your semester, sorted.';
-    pageSubtitle.innerText = 'All your courses, materials, and plans. One calm place.';
+    pageTitle.innerText = 'Welcome to your study.';
+    pageSubtitle.innerText = 'A place for everything you’re learning. And a little room to breathe.';
     addSemBtn.style.display = 'flex';
     addCourseBtn.style.display = 'flex';
     if (importBtn) importBtn.style.display = 'flex';
@@ -3217,6 +3221,7 @@ function renderTimetableWorkspace(degree) {
     const name = document.createElement('span');
     name.style.cssText = 'font-size: 0.9rem; font-weight: 600; color: var(--text-primary);';
     name.innerText = course.name;
+  name.title = course.name;
     
     titleRow.appendChild(code);
     titleRow.appendChild(name);
@@ -4252,6 +4257,14 @@ function initializeWorkspaceInterface() {
   document.getElementById('dashboard-search').addEventListener('input', applyDashboardFilters);
   document.getElementById('dashboard-semester-filter').addEventListener('change', applyDashboardFilters);
   document.getElementById('btn-overview-calendar').addEventListener('click', () => handleNavigation('calendar'));
+  document.getElementById('btn-open-bookshelf').addEventListener('click', () => {
+    const shelf = document.getElementById('course-shelf-heading');
+    shelf.scrollIntoView({behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start'});
+    shelf.focus({preventScroll:true});
+  });
+  document.querySelectorAll('[data-study-view]').forEach(button => {
+    button.addEventListener('click', () => handleNavigation(button.dataset.studyView));
+  });
   document.getElementById('menu-toggle').addEventListener('click', () => {
     const open = document.body.classList.toggle('navigation-open');
     document.getElementById('menu-toggle').setAttribute('aria-expanded', String(open));
