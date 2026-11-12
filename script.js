@@ -1,4 +1,4 @@
-import {GRADE_OPTIONS, courseGrade, normalizeGrade, academicTotals, parsePerformancePages, mergePerformanceSheet} from './academics.js';
+import {GRADE_POINTS, GRADE_OPTIONS, buildCourseRecord, estimateSemester, courseGrade, normalizeGrade, academicTotals, parsePerformancePages, mergePerformanceSheet} from './academics.js';
 import {createBackend, WORKSPACE_KEYS, validateSnapshot} from './backend.js';
 
 const config = window.UNIVAULT_CONFIG || {};
@@ -13,6 +13,8 @@ const backend = createBackend({client:backendClient,storage:window.localStorage,
 const workspaceStorage = backend.workspaceStorage;
 let authInitialized = false;
 let authRequestPending = false;
+// Temporary midsem estimates are deliberately absent from workspace storage and backups.
+let midsemDraft = {semesterId:null,grades:{}};
 
 // UniVault Database and State Management Script
 
@@ -412,7 +414,7 @@ async function renderBoard() {
 
 async function buildCourseCard(course) {
   const card = document.createElement('div');
-  card.className = 'course-card';
+  card.className = course.isPlaceholder ? 'course-card elective-placeholder' : 'course-card';
   card.id = `course-card-${course.id}`;
   card.dataset.id = course.id;
   card.draggable = true;
@@ -445,7 +447,7 @@ async function buildCourseCard(course) {
     creditsBadge.style.padding = '2px 6px';
     creditsBadge.style.borderRadius = '4px';
     creditsBadge.style.color = 'var(--text-secondary)';
-    creditsBadge.innerText = `${course.credits} Cr`;
+    creditsBadge.innerText = `${course.credits} ${course.isPlaceholder || !courseGrade(course) ? 'planned Cr' : 'Cr'}`;
     codeRow.appendChild(creditsBadge);
   }
   card.appendChild(codeRow);
@@ -463,7 +465,7 @@ async function buildCourseCard(course) {
   
   const grade = document.createElement('span');
   grade.className = 'course-recorded-grade';
-  grade.textContent = courseGrade(course) ? `Grade: ${courseGrade(course)}` : 'Grade pending';
+  grade.textContent = course.isPlaceholder ? 'Elective placeholder · planned' : courseGrade(course) ? `Grade: ${courseGrade(course)}` : 'Grade pending';
 
   // Count of materials uploaded for this course
   const files = await getFilesByCourse(course.id);
@@ -481,7 +483,7 @@ async function buildCourseCard(course) {
   
   const editBtn = document.createElement('button');
   editBtn.className = 'action-icon';
-  editBtn.title = 'Edit Course Details';
+  editBtn.title = course.isPlaceholder ? 'Edit elective placeholder' : 'Edit Course Details';
   editBtn.innerHTML = `<i data-lucide="edit-3"></i>`;
   editBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -607,8 +609,9 @@ async function openCourseDetail(courseId) {
   badge.style.backgroundColor = `rgba(${hexToRgb(ACCENT_COLORS[course.themeColor])}, 0.15)`;
   badge.style.color = ACCENT_COLORS[course.themeColor];
   
-  document.getElementById('detail-course-credits').textContent = `${Number(course.credits) || 0} credits`;
-  document.getElementById('detail-course-grade').innerHTML = `<i data-lucide="award"></i> Grade: ${escapeHtml(courseGrade(course) || 'Pending')}`;
+  document.getElementById('detail-course-credits').textContent = `${Number(course.credits) || 0} ${course.isPlaceholder || !courseGrade(course) ? 'planned credits' : 'credits'}`;
+  document.getElementById('detail-course-grade').textContent = course.isPlaceholder ? `${course.electiveType} elective · course not chosen yet` : `Grade: ${courseGrade(course) || 'Pending'}`;
+  document.getElementById('btn-choose-elective').hidden = !course.isPlaceholder;
   
   // Notepad contents
   document.getElementById('detail-notes-textarea').value = course.notes || '';
@@ -1099,7 +1102,7 @@ function closeSemesterModal() {
   document.getElementById('modal-semester-backdrop').classList.remove('active');
 }
 
-function openCourseModal(courseId = null) {
+function openCourseModal(courseId = null, chooseElective = false) {
   // Populate Semesters select in course modal
   const semSelect = document.getElementById('course-sem-select');
   semSelect.innerHTML = '';
@@ -1118,8 +1121,11 @@ function openCourseModal(courseId = null) {
     document.getElementById('course-modal-title').innerText = 'Edit Course';
     document.getElementById('btn-save-course-submit').innerText = 'Save Changes';
     document.getElementById('course-edit-id').value = course.id;
-    document.getElementById('course-name-input').value = course.name;
-    document.getElementById('course-code-input').value = course.code;
+    document.getElementById('course-name-input').value = course.isPlaceholder ? '' : course.name;
+    document.getElementById('course-code-input').value = course.isPlaceholder ? '' : course.code;
+    document.getElementById('course-type-select').value = course.isPlaceholder && !chooseElective ? 'placeholder' : 'course';
+    document.getElementById('course-elective-type').value = course.electiveType || 'DEL';
+    document.querySelector('#course-type-select [value="placeholder"]').disabled = !!courseGrade(course);
     document.getElementById('course-sem-select').value = course.semesterId;
     document.getElementById('course-credits-input').value = course.credits ?? '';
     activeThemeColor = course.themeColor || 'indigo';
@@ -1128,14 +1134,33 @@ function openCourseModal(courseId = null) {
     document.getElementById('course-modal-title').innerText = 'Add Course';
     document.getElementById('btn-save-course-submit').innerText = 'Create Course';
     document.getElementById('course-edit-id').value = '';
+    document.getElementById('course-type-select').value = 'course';
+    document.getElementById('course-elective-type').value = 'DEL';
+    document.querySelector('#course-type-select [value="placeholder"]').disabled = false;
     document.getElementById('course-name-input').value = '';
     document.getElementById('course-code-input').value = '';
     document.getElementById('course-credits-input').value = '';
+    document.getElementById('course-sem-select').value = state.semesters.find(semester=>semester.id===midsemDraft.semesterId)?.id || state.semesters.find(semester=>!semester.completed)?.id || state.semesters[0]?.id || '';
     activeThemeColor = 'indigo';
   }
   
+  updateCourseFormMode();
   renderThemeSelectors();
   document.getElementById('modal-course-backdrop').classList.add('active');
+}
+
+function updateCourseFormMode() {
+  const placeholder=document.getElementById('course-type-select').value==='placeholder';
+  document.getElementById('course-placeholder-fields').hidden=!placeholder;
+  for (const field of ['name','code']) {
+    document.getElementById(`course-${field}-field`).hidden=placeholder;
+    const input=document.getElementById(`course-${field}-input`);input.required=!placeholder;input.disabled=placeholder;
+  }
+  document.getElementById('course-elective-type').disabled=!placeholder;
+  document.getElementById('course-credits-input').min=placeholder?'0.5':'0';
+  const editing=!!document.getElementById('course-edit-id').value;
+  document.getElementById('course-modal-title').textContent=placeholder ? (editing?'Edit elective placeholder':'Add elective placeholder') : (editing?'Edit course':'Add course');
+  document.getElementById('btn-save-course-submit').textContent=editing ? 'Save changes' : placeholder ? 'Add placeholder' : 'Create Course';
 }
 
 function closeCourseModal() {
@@ -1184,50 +1209,38 @@ function handleAddSemester(e) {
     renderMetrics();
     updateGlobalFiltersSelect();
     closeSemesterModal();
+    if (activeTab==='cgpa') renderCgpaCalculator();
   }
 }
 
-function handleAddCourse(e) {
+async function handleAddCourse(e) {
   e.preventDefault();
-  
-  const editId = document.getElementById('course-edit-id').value;
-  const name = document.getElementById('course-name-input').value.trim();
-  const code = document.getElementById('course-code-input').value.trim();
-  const semesterId = document.getElementById('course-sem-select').value;
-  const credits = Number(document.getElementById('course-credits-input').value);
-  
-  if (!name || !code || !semesterId || !Number.isFinite(credits) || credits < 0) return;
-  
-  if (editId) {
-    // Modify course
-    const course = state.courses.find(c => c.id === editId);
-    if (course) {
-      course.name = name;
-      course.code = code;
-      course.semesterId = semesterId;
-      course.credits = credits;
-      course.themeColor = activeThemeColor;
+  const editId=document.getElementById('course-edit-id').value;
+  const index=state.courses.findIndex(course=>course.id===editId);
+  const existing=index>=0 ? state.courses[index] : null;
+  try {
+    persistPendingNotes();
+    const record=buildCourseRecord({
+      mode:document.getElementById('course-type-select').value,
+      electiveType:document.getElementById('course-elective-type').value,
+      name:document.getElementById('course-name-input').value,
+      code:document.getElementById('course-code-input').value,
+      semesterId:document.getElementById('course-sem-select').value,
+      credits:document.getElementById('course-credits-input').value,
+      themeColor:activeThemeColor
+    },existing,state.courses);
+    if (index>=0) state.courses[index]=record;else state.courses.push(record);
+    for (const semester of state.semesters) {
+      if (![existing?.semesterId,record.semesterId].includes(semester.id)) continue;
+      const courses=state.courses.filter(course=>course.semesterId===semester.id);
+      semester.completed=courses.length>0 && courses.every(course=>!!courseGrade(course));
     }
-  } else {
-    // Add new course
-    const newCourse = {
-      id: `course-${Date.now()}`,
-      name: name,
-      code: code,
-      semesterId: semesterId,
-      credits: credits,
-      themeColor: activeThemeColor,
-      notes: '',
-      checklist: []
-    };
-    state.courses.push(newCourse);
-  }
-  
-  saveStateToStorage();
-  renderBoard();
-  renderMetrics();
-  updateGlobalFiltersSelect();
-  closeCourseModal();
+    saveStateToStorage();closeCourseModal();
+    await renderBoard();await renderMetrics();updateGlobalFiltersSelect();
+    if (activeTab==='cgpa') renderCgpaCalculator();
+    if (activeTab==='course-detail' && activeCourseId===record.id) await openCourseDetail(record.id);
+    showToast(record.isPlaceholder ? 'Elective placeholder saved. Credits are planned only.' : 'Course saved.');
+  } catch (error) {showToast(error.message,'error');}
 }
 
 async function confirmDeleteSemester(semId) {
@@ -2356,6 +2369,14 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('modal-course-close').addEventListener('click', closeCourseModal);
   document.getElementById('btn-cancel-course').addEventListener('click', closeCourseModal);
   document.getElementById('form-add-course').addEventListener('submit', handleAddCourse);
+  document.getElementById('course-type-select').addEventListener('change', updateCourseFormMode);
+  document.getElementById('btn-add-elective').addEventListener('click',()=>{
+    if (!state.semesters.length) {showToast('Add a semester first, then add elective placeholders.');openSemesterModal();return;}
+    openCourseModal();document.getElementById('course-type-select').value='placeholder';updateCourseFormMode();
+  });
+  document.getElementById('btn-choose-elective').addEventListener('click',()=>openCourseModal(activeCourseId,true));
+  document.getElementById('midsem-semester').addEventListener('change',event=>{midsemDraft={semesterId:event.target.value,grades:{}};renderMidsemEstimate();});
+  document.getElementById('midsem-reset').addEventListener('click',()=>{midsemDraft.grades={};renderMidsemEstimate();});
   
   // Detailed Course View Panel Events
   document.getElementById('btn-back-to-dashboard').addEventListener('click', () => handleNavigation('dashboard'));
@@ -2751,7 +2772,7 @@ function renderPerformancePreview() {
   const semesters=pendingPerformanceReport.semesters.map(semester=>({...semester,courses:semester.courses.filter(course=>includePending || normalizeGrade(course.grade))})).filter(semester=>semester.courses.length);
   const totals=academicTotals(semesters.flatMap(semester=>semester.courses));
   const merged=mergePerformanceSheet(state,pendingPerformanceReport,{includePending});
-  document.getElementById('performance-preview-summary').textContent=`${semesters.length} semesters · ${totals.courseCount} courses · ${totals.totalCredits} credits · Calculated CGPA ${totals.gpa===null?'—':totals.gpa.toFixed(2)}`;
+  document.getElementById('performance-preview-summary').textContent=`${semesters.length} semesters · ${totals.courseCount} courses · ${totals.earnedCredits} earned credits · ${totals.plannedCredits} planned credits · Calculated CGPA ${totals.gpa===null?'—':totals.gpa.toFixed(2)}`;
   document.getElementById('performance-preview-changes').textContent=`${merged.counts.added} new · ${merged.counts.updated} updated · ${merged.counts.unchanged} unchanged. Existing notes, files, tasks, and other courses stay in place.`;
   const reported=pendingPerformanceReport.reportedCgpa;
   const warning=document.getElementById('performance-preview-warning');
@@ -2762,7 +2783,7 @@ function renderPerformancePreview() {
     const section=document.createElement('section');
     const title=document.createElement('h3');title.textContent=semester.semName;section.appendChild(title);
     const stats=academicTotals(semester.courses);
-    const caption=document.createElement('p');caption.className='academic-caption';caption.textContent=`${stats.courseCount} courses · ${stats.totalCredits} credits · SGPA ${stats.gpa===null?'—':stats.gpa.toFixed(2)}`;section.appendChild(caption);
+    const caption=document.createElement('p');caption.className='academic-caption';caption.textContent=`${stats.courseCount} courses · ${stats.earnedCredits} earned credits · ${stats.plannedCredits} planned credits · SGPA ${stats.gpa===null?'—':stats.gpa.toFixed(2)}`;section.appendChild(caption);
     const table=document.createElement('table');table.className='performance-table';
     table.innerHTML='<thead><tr><th scope="col">Course</th><th scope="col">Credits</th><th scope="col">Grade</th></tr></thead>';
     const body=document.createElement('tbody');
@@ -2857,9 +2878,11 @@ function renderCgpaCalculator() {
   container.replaceChildren();
   const overall=academicTotals(state.courses);
   document.getElementById('overall-cgpa-display').textContent=overall.gpa===null?'—':overall.gpa.toFixed(2);
-  document.getElementById('overall-credits-display').textContent=overall.totalCredits.toFixed(1);
-  document.getElementById('overall-courses-display').textContent=overall.courseCount;
+  document.getElementById('overall-credits-display').textContent=overall.earnedCredits.toFixed(1);
+  document.getElementById('overall-courses-display').textContent=overall.completedCourses;
   document.getElementById('overall-gpa-credits-display').textContent=overall.gradedCredits.toFixed(1);
+  document.getElementById('overall-planned-credits-display').textContent=overall.plannedCredits.toFixed(1);
+  renderMidsemEstimate();
   if (!state.semesters.length) {
     container.innerHTML='<div class="empty-state"><div class="empty-state-title">Your academic record starts here</div><div class="empty-state-desc">Upload your performance sheet above to save past grades, or add your own courses. Nothing is preloaded.</div></div>';
     return;
@@ -2871,7 +2894,7 @@ function renderCgpaCalculator() {
     const title=document.createElement('h3');title.textContent=semester.name;
     const badge=document.createElement('span');badge.className='academic-sgpa';badge.textContent=`SGPA ${totals.gpa===null?'—':totals.gpa.toFixed(2)}`;
     header.append(title,badge);card.appendChild(header);
-    const meta=document.createElement('p');meta.className='academic-caption';meta.textContent=`${totals.courseCount} courses · ${totals.totalCredits} credits · ${totals.recordedCount} grades recorded`;card.appendChild(meta);
+    const meta=document.createElement('p');meta.className='academic-caption';meta.textContent=`${totals.courseCount} course slots · ${totals.earnedCredits} earned credits · ${totals.plannedCredits} planned credits`;card.appendChild(meta);
     if (!courses.length) {const empty=document.createElement('p');empty.textContent='No courses in this semester yet.';card.appendChild(empty);}
     courses.forEach(course=>{
       const row=document.createElement('div');row.className='academic-course';
@@ -2880,7 +2903,13 @@ function renderCgpaCalculator() {
       const name=document.createElement('span');name.textContent=course.name;
       const credits=document.createElement('small');credits.textContent=`${Number(course.credits) || 0} credits`;
       details.append(code,name,credits);
-      const select=document.createElement('select');select.className='form-control academic-grade';select.setAttribute('aria-label',`Recorded grade for ${course.code}, ${semester.name}`);
+      if (course.isPlaceholder) {
+        row.classList.add('academic-placeholder');code.textContent=`${course.electiveType} placeholder`;
+        credits.textContent=`${Number(course.credits) || 0} planned credits`;
+        const choose=document.createElement('button');choose.className='btn btn-secondary btn-sm';choose.textContent='Choose course';choose.setAttribute('aria-label',`Choose course for ${course.name}, ${semester.name}`);choose.addEventListener('click',()=>openCourseModal(course.id,true));
+        row.append(details,choose);card.appendChild(row);return;
+      }
+      const select=document.createElement('select');select.className='form-control academic-grade';select.setAttribute('aria-label',`Recorded final grade for ${course.code}, ${semester.name}`);
       const options=[...GRADE_OPTIONS];const current=courseGrade(course);if (current && !options.includes(current)) options.push(current);
       options.forEach(grade=>select.add(new Option(grade || 'Pending',grade,false,grade===current)));
       select.addEventListener('change',()=>{
@@ -2893,6 +2922,40 @@ function renderCgpaCalculator() {
     });
     container.appendChild(card);
   });
+}
+
+// This calculator intentionally never calls workspaceStorage or saveStateToStorage.
+function renderMidsemEstimate() {
+  const selector=document.getElementById('midsem-semester');
+  const ongoing=state.semesters.filter(semester=>!semester.completed);
+  const selected=ongoing.find(semester=>semester.id===midsemDraft.semesterId) || ongoing.find(semester=>state.courses.some(course=>course.semesterId===semester.id && !course.isPlaceholder)) || ongoing[0];
+  if (selected?.id!==midsemDraft.semesterId) midsemDraft={semesterId:selected?.id || null,grades:{}};
+  selector.replaceChildren();ongoing.forEach(semester=>selector.add(new Option(semester.name,semester.id)));
+  selector.disabled=!selected;if(selected) selector.value=selected.id;
+  const rows=document.getElementById('midsem-course-rows');rows.replaceChildren();
+  const courses=state.courses.filter(course=>course.semesterId===selected?.id && !course.isPlaceholder);
+  const empty=document.getElementById('midsem-empty-message');
+  empty.textContent=!selected ? 'Add your current semester and courses to try a midsem estimate.' : !courses.length ? 'Choose the actual courses for this semester first. Elective placeholders are excluded from this estimate.' : 'Enter your current estimated letter grades below. Only filled grades enter this estimate.';
+  courses.forEach(course=>{
+    const row=document.createElement('div');row.className='academic-course';
+    const label=document.createElement('label');label.className='academic-course-info';label.htmlFor=`midsem-grade-${course.id}`;
+    const name=document.createElement('strong');name.textContent=`${course.code} · ${course.name}`;
+    const credits=document.createElement('small');credits.textContent=`${Number(course.credits) || 0} credits`;label.append(name,credits);
+    const grade=document.createElement('select');grade.className='form-control academic-grade';grade.id=label.htmlFor;
+    grade.setAttribute('aria-label',`Temporary midsem grade for ${course.code}`);
+    grade.add(new Option('No estimate',''));Object.keys(GRADE_POINTS).forEach(value=>grade.add(new Option(value,value)));
+    grade.value=midsemDraft.grades[course.id] || '';
+    grade.addEventListener('change',()=>{midsemDraft.grades[course.id]=grade.value;updateMidsemResult(courses);});
+    row.append(label,grade);rows.appendChild(row);
+  });
+  document.getElementById('midsem-reset').disabled=!courses.length;
+  updateMidsemResult(courses);
+}
+
+function updateMidsemResult(courses) {
+  const estimate=estimateSemester(courses,midsemDraft.grades);
+  document.getElementById('midsem-sgpa').textContent=`Estimated SGPA ${estimate.gpa===null?'—':estimate.gpa.toFixed(2)}`;
+  document.getElementById('midsem-coverage').textContent=`${estimate.gradedCourses} of ${estimate.eligibleCourses} selected courses · ${estimate.gradedCredits} estimated credits. Temporary values only; nothing is saved.`;
 }
 
 // ================= BITS CHRONO TIMETABLE PLANNER MODULE =================

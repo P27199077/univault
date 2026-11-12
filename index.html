@@ -355,6 +355,7 @@
           <div class="course-detail-meta">
             <span id="detail-course-credits">Credits</span>
             <span id="detail-course-grade"><i data-lucide="award"></i> Grade: Pending</span>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-choose-elective" hidden>Choose course</button>
           </div>
         </div>
 
@@ -687,8 +688,9 @@
         <div class="view-header" style="margin-bottom: 2rem;">
           <div>
             <h1 class="section-duplicate-title">Grades &amp; CGPA</h1>
-            <p class="section-duplicate-subtitle">Actual grades from your performance sheet, saved semester by semester.</p>
+            <p class="section-duplicate-subtitle">Final grades, planned electives, and a separate midsem estimate.</p>
           </div>
+          <button type="button" class="btn btn-secondary" id="btn-add-elective"><i data-lucide="plus"></i> Add elective placeholder</button>
         </div>
 
         <!-- Cumulative CGPA Card -->
@@ -696,13 +698,27 @@
           <div style="font-size: 1.2rem; opacity: 0.8; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">Cumulative CGPA</div>
           <div id="overall-cgpa-display" style="font-size: 4rem; font-weight: 800; background: linear-gradient(135deg, #176052 0%, #398473 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 2px 8px rgba(221, 140, 150, 0.3));">0.00</div>
           <div class="academic-overall-totals">
-            <div>Course credits: <span id="overall-credits-display" style="color: var(--text-primary); font-weight: 600;">0.0</span></div>
-            <div>Courses: <span id="overall-courses-display" style="color: var(--text-primary); font-weight: 600;">0</span></div>
+            <div>Earned credits: <span id="overall-credits-display" style="color: var(--text-primary); font-weight: 600;">0.0</span></div>
+            <div>Completed courses: <span id="overall-courses-display" style="color: var(--text-primary); font-weight: 600;">0</span></div>
             <div>GPA credits: <span id="overall-gpa-credits-display">0.0</span></div>
+            <div>Planned credits: <span id="overall-planned-credits-display">0.0</span></div>
           </div>
         </div>
 
-        <p class="academic-grading-note">CGPA is weighted by credits, not the average of semester SGPAs. A = 10 · A− = 9 · B = 8 · B− = 7 · C = 6 · C− = 5 · D = 4 · E = 2. Pending courses and non-letter reports such as SA, NC, and RRA are excluded from GPA credits.</p>
+        <p class="academic-grading-note">CGPA is weighted by credits, not the average of semester SGPAs. A = 10 · A− = 9 · B = 8 · B− = 7 · C = 6 · C− = 5 · D = 4 · E = 2. Pending courses and elective placeholders count only as planned credits. SA earns credit without affecting GPA. NC, RRA, and other non-letter reports do not affect GPA; E affects GPA but earns no credit.</p>
+        <details class="midsem-estimate" id="midsem-estimate">
+          <summary>Estimate your current semester with midsem grades</summary>
+          <div class="midsem-body">
+            <p class="academic-caption">Temporary, for this semester only. Your saved grades, earned credits, and cumulative CGPA stay unchanged. Reset or reload to clear the estimate.</p>
+            <label class="form-label" for="midsem-semester">Current semester</label>
+            <select class="form-control" id="midsem-semester"></select>
+            <p class="academic-caption" id="midsem-empty-message"></p>
+            <div id="midsem-course-rows"></div>
+            <div class="midsem-result" role="status" aria-live="polite"><strong id="midsem-sgpa">Estimated SGPA —</strong><p id="midsem-coverage" class="academic-caption"></p></div>
+            <button type="button" class="btn btn-secondary" id="midsem-reset">Reset temporary grades</button>
+          </div>
+        </details>
+        <div class="academic-final-heading"><h2>Saved final grades</h2><p class="academic-caption">Enter final grades here after a course is finished. Use the temporary midsem calculator above for provisional grades.</p></div>
         <!-- Semesters CGPA Container -->
         <div id="cgpa-semesters-container" class="academic-semesters">
           <!-- Dynamically generated semester cards -->
@@ -1022,11 +1038,13 @@
       <form id="form-add-course">
         <input type="hidden" id="course-edit-id" value="">
         <div class="modal-body">
-          <div class="form-group">
+          <div class="form-group"><label class="form-label" for="course-type-select">Course type</label><select class="form-control" id="course-type-select"><option value="course">Course selected</option><option value="placeholder">Elective placeholder</option></select></div>
+          <div class="form-group" id="course-placeholder-fields" hidden><label class="form-label" for="course-elective-type">Elective type</label><select class="form-control" id="course-elective-type"><option value="DEL">DEL — Discipline elective</option><option value="HuEL">HuEL — Humanities elective</option><option value="OpEL">OpEL — Open elective</option></select><p class="academic-caption">Reserve the credits now. Choose the actual course later; planned credits do not count toward earned credits or GPA.</p></div>
+          <div class="form-group" id="course-name-field">
             <label class="form-label" for="course-name-input">Course Name</label>
             <input type="text" class="form-control" id="course-name-input" placeholder="e.g., Intro to Computer Science" required>
           </div>
-          <div class="form-group">
+          <div class="form-group" id="course-code-field">
             <label class="form-label" for="course-code-input">Course Code</label>
             <input type="text" class="form-control" id="course-code-input" placeholder="e.g., CS-101" required>
           </div>

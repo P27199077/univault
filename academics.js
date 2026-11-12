@@ -5,7 +5,33 @@ export const normalizeGrade = value => {
   const grade = String(value ?? '').trim().toUpperCase().replace(/[−–—]/g,'-');
   return ['PENDING','ONGOING','REGISTERED','N/A','-'].includes(grade) ? '' : grade;
 };
-export const courseGrade = course => normalizeGrade(course.grade ?? course.targetGrade);
+export const courseGrade = course => course.isPlaceholder ? '' : normalizeGrade(course.grade ?? course.targetGrade);
+export const ELECTIVE_TYPES = Object.freeze(['DEL','HuEL','OpEL']);
+
+export function buildCourseRecord(input, existing=null, courses=[]) {
+  const isPlaceholder=input.mode==='placeholder';
+  const credits=Number(input.credits);
+  if (!input.semesterId || (input.credits==='' || input.credits==null) || !Number.isFinite(credits) || credits<0 || credits>50 || (isPlaceholder && credits===0)) {
+    throw new Error('Choose a semester and enter valid credits (up to 50). Elective placeholders need credits greater than zero.');
+  }
+  if (isPlaceholder && existing && courseGrade(existing)) throw new Error('This course already has a recorded grade. Keep it as a selected course.');
+  let name=String(input.name || '').trim(),code=String(input.code || '').trim();
+  if (isPlaceholder) {
+    if (!ELECTIVE_TYPES.includes(input.electiveType)) throw new Error('Choose DEL, HuEL, or OpEL.');
+    code=input.electiveType;
+    if (existing?.isPlaceholder && existing.electiveType===code && existing.semesterId===input.semesterId) name=existing.name;
+    else {
+      let number=1;
+      while (courses.some(course=>course.id!==existing?.id && course.semesterId===input.semesterId && course.name===`${code} ${number}`)) number++;
+      name=`${code} ${number}`;
+    }
+  } else if (!name || !code) throw new Error('Enter the selected course name and code.');
+  const course={notes:'',checklist:[],...existing,id:existing?.id || `course-${crypto.randomUUID()}`,name,code,semesterId:input.semesterId,credits,isPlaceholder,
+    electiveType:isPlaceholder ? input.electiveType : existing?.electiveType || null,
+    grade:isPlaceholder ? '' : courseGrade(existing || {}),themeColor:input.themeColor || 'indigo'};
+  delete course.targetGrade;
+  return course;
+}
 const clean = text => String(text).replace(/\s+/g,' ').trim();
 const codeKey = text => clean(text).toUpperCase().replace(/\s/g,'');
 const nameKey = text => clean(text).toLowerCase();
@@ -111,11 +137,17 @@ export function mergePerformanceSheet(current, report, {includePending=false,id=
 }
 
 export function academicTotals(courses) {
-  const totals={courseCount:courses.length,totalCredits:0,recordedCount:0,gradedCredits:0,gradedCourses:0,points:0,gpa:null};
+  const totals={courseCount:courses.length,totalCredits:0,earnedCredits:0,completedCourses:0,plannedCredits:0,placeholderCount:0,recordedCount:0,gradedCredits:0,gradedCourses:0,points:0,gpa:null};
   for (const course of courses) {
     const credits=Number(course.credits);
     const grade=courseGrade(course);
-    if (Number.isFinite(credits) && credits>=0) totals.totalCredits+=credits;
+    if (Number.isFinite(credits) && credits>=0) {
+      totals.totalCredits+=credits;
+      if (!grade) totals.plannedCredits+=credits;
+      const passed=(Object.hasOwn(GRADE_POINTS,grade) && grade!=='E') || ['SA','EXCELLENT','GOOD','FAIR'].includes(grade);
+      if (passed) {totals.earnedCredits+=credits;totals.completedCourses++;}
+    }
+    if (course.isPlaceholder) totals.placeholderCount++;
     if (grade) totals.recordedCount++;
     if (Object.hasOwn(GRADE_POINTS,grade) && Number.isFinite(credits) && credits>0) {
       totals.points+=GRADE_POINTS[grade]*credits;totals.gradedCredits+=credits;totals.gradedCourses++;
@@ -123,4 +155,11 @@ export function academicTotals(courses) {
   }
   if (totals.gradedCredits>0) totals.gpa=totals.points/totals.gradedCredits;
   return totals;
+}
+
+// Estimates use supplied temporary grades only; saved records are never changed or used as defaults.
+export function estimateSemester(courses, temporaryGrades={}) {
+  const selected=courses.filter(course=>!course.isPlaceholder);
+  const totals=academicTotals(selected.map(course=>({...course,grade:Object.hasOwn(temporaryGrades,course.id) ? normalizeGrade(temporaryGrades[course.id]) : ''})));
+  return {gpa:totals.gpa,gradedCredits:totals.gradedCredits,gradedCourses:totals.gradedCourses,eligibleCourses:selected.length};
 }

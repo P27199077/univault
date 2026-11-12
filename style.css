@@ -2395,3 +2395,29 @@ button:disabled {opacity: .55; cursor: wait; transform: none !important;}
   .performance-preview-modal .modal-footer .btn {flex: 1; justify-content: center;}
   .performance-table th:first-child {width: 60%;}
 }
+
+/* Elective plans and the separate, temporary midsem calculator. */
+.elective-placeholder {border-style: dashed; background: #f8faf5;}
+.academic-placeholder {border-top-style: dashed;}
+.academic-placeholder .btn {flex-shrink: 0;}
+.midsem-estimate {margin: 24px 0; border: 1px solid #d8d5bf; border-radius: 14px; background: #fbf9f0;}
+.midsem-estimate summary {padding: 20px; font-size: 16px; font-weight: 600; cursor: pointer; color: #63592e;}
+.midsem-body {padding: 0 20px 20px;}
+#midsem-semester {max-width: 520px; margin-bottom: 16px;}
+.midsem-result {border-top: 1px solid #ded9bf; padding-top: 18px; margin: 14px 0;}
+.midsem-result strong {font-size: 23px; color: #63592e;}
+.midsem-result .academic-caption {margin: 8px 0 0;}
+#modal-course-backdrop .modal {display: flex; flex-direction: column; max-height: calc(100dvh - 40px);}
+#form-add-course {display: flex; flex-direction: column; min-height: 0;}
+#form-add-course .modal-body {overflow-y: auto; min-height: 0;}
+#form-add-course .modal-footer, #modal-course-backdrop .modal-header {flex-shrink: 0;}
+@media (max-width: 700px) {
+  #view-cgpa .view-header {align-items: flex-start; flex-direction: column; gap: 16px;}
+  #btn-add-elective {width: 100%; justify-content: center;}
+  #modal-course-backdrop .modal {max-height: calc(100dvh - 24px);}
+  .midsem-body {padding: 0 16px 16px;}
+  .midsem-estimate summary {padding: 16px; font-size: 15px; line-height: 1.5;}
+}
+
+.academic-final-heading {margin: 28px 0 16px;}
+.academic-final-heading h2 {font-size: 20px; margin-bottom: 8px;}

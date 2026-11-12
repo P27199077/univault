@@ -45,9 +45,17 @@ Open **Grades & CGPA → Upload performance sheet**, select an original BITS per
 
 - The preview defaults to courses with recorded grades. **Also add ungraded / future courses** is optional; those courses do not affect GPA until they receive a letter grade.
 - A single upload is enough to retain your past semesters. Uploading a newer sheet merges courses by semester and course code, updates recorded grades and credits, and keeps existing IDs, notes, tasks, files, and unrelated courses. Re-uploading the same sheet does not create duplicates.
-- The grade view shows each semester's SGPA and the cumulative CGPA, using credit-weighted grade points: A=10, A−=9, B=8, B−=7, C=6, C−=5, D=4, E=2. Pending courses and special reports such as SA/NC/RRA do not enter GPA credits. Course credits and course counts include all saved courses and are displayed separately from GPA credits.
+- The grade view shows each semester's SGPA and the cumulative CGPA, using credit-weighted grade points: A=10, A−=9, B=8, B−=7, C=6, C−=5, D=4, E=2. Pending courses and special reports such as SA/NC/RRA do not enter GPA credits. Earned credits and completed-course counts include only passed courses; unfinished courses and elective placeholders appear separately as planned credits. E contributes 2 grade points to GPA but earns no credit. SA earns credit without entering GPA. GPA credits are displayed separately.
 - Recorded grades can be corrected in **Grades & CGPA**. Professor and target-grade fields are removed from course cards and forms. Older saved grade fields remain readable for compatibility.
 - The parser uses PDF text coordinates to handle side-by-side semester tables and repeated headings. It accepts selectable-text PDFs up to 10 MB and 30 pages; scanned image-only sheets require OCR and are not supported. A mismatch between the sheet's printed CGPA and the calculated result is highlighted for review. Repeated-course replacement rules are not inferred; check those records before saving.
+
+## Elective placeholders and temporary midsem estimates
+
+Use **Grades & CGPA → Add elective placeholder**, or **Dashboard → Add Course → Course type → Elective placeholder**. Choose **DEL**, **HuEL**, or **OpEL**, the semester, and the known credits. Names and course codes are optional until the actual elective is selected; each slot is automatically numbered. You can add multiple slots per semester. They count only as planned credits and cannot receive a final grade.
+
+Choose **Choose course** on the slot in Grades & CGPA or its course workspace, then enter the actual name and code. The same record ID is retained, preserving its notes, tasks, and file links. Choosing a course still leaves it ungraded: it enters earned credits and GPA only when an appropriate final grade is recorded. Slots are never silently matched to courses imported from a PDF.
+
+Expand **Estimate your current semester with midsem grades** in Grades & CGPA. Pick the current semester from ongoing semesters and enter temporary letter grades for its selected courses. The estimate is weighted by course credits and shows how many courses and credits it covers. Elective placeholders and blank estimates are excluded. Saved final grades are never used as defaults or overwritten, and historical SGPA, cumulative CGPA, and earned credits are unchanged. Estimates exist only in page memory: **Reset temporary grades**, selecting another semester, or reloading clears them. They are not synced or included in backups.
 
 ## Existing data
 

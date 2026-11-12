@@ -91,3 +91,46 @@ test('invalid merge does not mutate existing records, and saved legacy grades re
   assert.deepEqual(current,before);
   assert.equal(academicTotals(current.courses).gpa,8);
 });
+
+test('pending courses and elective placeholders never inflate earned credits or GPA',()=>{
+  const totals=academicTotals([
+    {credits:4,grade:'A'},{credits:.5,grade:'SA'},
+    {credits:3,grade:''},{credits:2,grade:'',isPlaceholder:true,electiveType:'HuEL'},
+    {credits:3,grade:'A',isPlaceholder:true,electiveType:'DEL'}
+  ]);
+  assert.equal(totals.earnedCredits,4.5);assert.equal(totals.completedCourses,2);
+  assert.equal(totals.plannedCredits,8);assert.equal(totals.placeholderCount,2);
+  assert.equal(totals.gradedCredits,4);assert.equal(totals.gpa,10);
+  assert.equal(academicTotals([{credits:3,grade:'E'}]).earnedCredits,0);
+  assert.equal(academicTotals([{credits:3,grade:'E'}]).gpa,2);
+});
+
+test('elective slots need only category, semester and credits; choosing a course keeps its workspace',async()=>{
+  const {buildCourseRecord}=await import('../academics.js');
+  const input={mode:'placeholder',electiveType:'DEL',semesterId:'current',credits:'3'};
+  const first=buildCourseRecord(input);
+  const second=buildCourseRecord(input,null,[first]);
+  assert.equal(first.name,'DEL 1');assert.equal(second.name,'DEL 2');
+  assert.equal(first.grade,'');assert.equal(first.isPlaceholder,true);
+  first.notes='Keep these notes';first.checklist=[{id:'task',text:'Choose an elective'}];
+  const resolved=buildCourseRecord({mode:'course',name:'Chosen elective',code:'TEST F999',semesterId:'current',credits:'3'},first,[first,second]);
+  assert.equal(resolved.id,first.id);assert.equal(resolved.notes,'Keep these notes');
+  assert.equal(resolved.checklist[0].id,'task');assert.equal(resolved.isPlaceholder,false);
+  assert.equal(academicTotals([resolved]).earnedCredits,0);
+  assert.equal(academicTotals([{...resolved,grade:'B'}]).earnedCredits,3);
+  assert.throws(()=>buildCourseRecord({...input,credits:''}),/valid credits/);
+  assert.throws(()=>buildCourseRecord({...input,electiveType:'Invalid'}),/Choose DEL/);
+  assert.throws(()=>buildCourseRecord(input,{...resolved,grade:'A'}),/recorded grade/);
+});
+
+test('midsem estimates are temporary, semester-scoped, and never borrow or overwrite final grades',async()=>{
+  const {estimateSemester}=await import('../academics.js');
+  const courses=[{id:'one',semesterId:'current',credits:4,grade:'A'}, {id:'two',semesterId:'current',credits:2,grade:''}, {id:'slot',semesterId:'current',credits:3,isPlaceholder:true,grade:''}];
+  const before=structuredClone(courses);
+  assert.equal(estimateSemester(courses).gpa,null);
+  const estimate=estimateSemester(courses,{one:'B-',two:'A',slot:'A'});
+  assert.equal(estimate.gpa,8);assert.equal(estimate.gradedCredits,6);assert.equal(estimate.eligibleCourses,2);
+  assert.deepEqual(courses,before);assert.equal(academicTotals(courses).gpa,10);
+  assert.equal(academicTotals(courses).earnedCredits,4);
+  assert.equal(estimateSemester(courses,{two:'B'}).gpa,8);
+});
