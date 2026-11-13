@@ -231,8 +231,11 @@ async function renderBoard() {
     return;
   }
   
-  // Keep semester levels stable when a semester is marked complete.
-  const sortedSemesters=state.semesters;
+  // Active semester shelves stay at eye level; finished shelves settle below them.
+  const sortedSemesters=[
+    ...state.semesters.filter(semester=>!semester.completed),
+    ...state.semesters.filter(semester=>semester.completed),
+  ];
 
   // Each semester is a shelf; course records render as clickable books.
   for (const sem of sortedSemesters) {
@@ -240,9 +243,12 @@ async function renderBoard() {
     col.className = 'semester-column';
     col.id = `sem-col-${sem.id}`;
     col.dataset.id = sem.id;
+    col.classList.toggle('semester-finished',!!sem.completed);
+    const currentSemester=state.semesters.find(semester=>!semester.completed && state.courses.some(course=>course.semesterId===semester.id && !course.isPlaceholder));
+    col.classList.toggle('semester-current',!sem.completed && sem.id===currentSemester?.id);
     
     // Get courses in this semester
-    const semCourses = state.courses.filter(c => c.semesterId === sem.id);
+    const semCourses = state.courses.filter(c => c.semesterId === sem.id).sort((a,b)=>(Number(a.shelfOrder)||0)-(Number(b.shelfOrder)||0));
     
     // Build Header
     const header = document.createElement('div');
@@ -399,8 +405,8 @@ async function renderBoard() {
     courseList.id = `course-list-${sem.id}`;
     courseList.dataset.semId = sem.id;
     
-    for (const course of semCourses) {
-      const card = await buildCourseCard(course);
+    for (const [courseIndex,course] of semCourses.entries()) {
+      const card = await buildCourseCard(course,{worn:!!sem.completed || col.classList.contains('semester-current'),laid:semCourses.length>2 && courseIndex%7===3});
       courseList.appendChild(card);
     }
     
@@ -413,9 +419,12 @@ async function renderBoard() {
   lucide.createIcons();
 }
 
-async function buildCourseCard(course) {
-  const card=document.createElement('div');card.className='course-card spine-volume'+(course.isPlaceholder?' elective-placeholder':'');
+async function buildCourseCard(course,{worn=false,laid=false}={}) {
+  const card=document.createElement('div');card.className='course-card spine-volume'+(course.isPlaceholder?' elective-placeholder':'')+(worn?' spine-worn':'')+(laid?' spine-laid':'');
   card.id=`course-card-${course.id}`;card.dataset.id=course.id;card.draggable=true;card.setAttribute('role','group');card.setAttribute('aria-label',course.name);
+  const credits=Math.max(1,Math.min(8,Number(course.credits)||1));
+  card.style.setProperty('--book-width',`${Math.round(48+credits*4)}px`);
+  card.style.setProperty('--book-height',`${Math.round(190+credits*7)}px`);
   card.style.setProperty('--book-color',COURSE_BROWNS[courseCategory(course)]);
   const open=document.createElement('button');open.type='button';open.className='spine-open';open.setAttribute('aria-label',`Open ${course.name}`);open.title=`${course.name} · ${course.code} · ${courseCategory(course)}`;
   const category=document.createElement('span');category.className='spine-category';category.textContent=courseCategory(course);
@@ -502,8 +511,20 @@ function setupDragAndDrop() {
       
       if (courseId && targetSemId) {
         const course = state.courses.find(c => c.id === courseId);
-        if (course && course.semesterId !== targetSemId) {
-          course.semesterId = targetSemId;
+        const draggedCard=document.querySelector(`.course-card[data-id="${courseId}"]`);
+        const targetCard=e.target.closest('.course-card');
+        const targetList=col.querySelector('.course-list');
+        if (course && draggedCard && targetList) {
+          if(targetCard && targetCard!==draggedCard && targetCard.parentElement===targetList){
+            const after=e.clientX>targetCard.getBoundingClientRect().left+targetCard.getBoundingClientRect().width/2;
+            targetList.insertBefore(draggedCard,after?targetCard.nextSibling:targetCard);
+          }else targetList.appendChild(draggedCard);
+          document.querySelectorAll('.semester-column').forEach(semesterColumn=>{
+            semesterColumn.querySelectorAll('.course-card').forEach((card,index)=>{
+              const item=state.courses.find(entry=>entry.id===card.dataset.id);
+              if(item){item.semesterId=semesterColumn.dataset.id;item.shelfOrder=index;}
+            });
+          });
           saveStateToStorage();
           await renderBoard();
           await renderMetrics();

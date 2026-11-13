@@ -104,6 +104,28 @@
 .book-category-legend span {display: inline-flex;align-items: center;gap: 6px;}
 .book-category-legend i {width: 9px;height: 14px;border-radius: 2px;box-shadow: inset 1px 0 #fff2c01f;border: 1px solid #d1b17c55;}
 
+/* A real cabinet frame remains visible around every semester, even in the close view. */
+.shelf-workspace .semester-column {isolation:isolate;padding-left:18px;padding-right:18px;background:linear-gradient(90deg,#51341f 0 9px,#9a7049 9px 13px,transparent 13px calc(100% - 13px),#9a7049 calc(100% - 13px) calc(100% - 9px),#51341f calc(100% - 9px)),linear-gradient(90deg,#3a271f24,#3a271f05 15%,#3a271f10 85%,#3a271f20),#87603e;box-shadow:inset 0 0 0 1px #bd936255,inset 0 10px 17px #31201626;}
+.shelf-workspace .semester-column::before,.shelf-workspace .semester-column::after {content:"";position:absolute;z-index:2;top:0;bottom:0;width:8px;pointer-events:none;background:linear-gradient(90deg,#bd936255,#49301d99 44%,#d0a16b55);}
+.shelf-workspace .semester-column::before {left:3px;}
+.shelf-workspace .semester-column::after {right:3px;}
+.shelf-workspace .semester-header {position:relative;z-index:3;padding:1px 5px 4px;}
+.shelf-workspace .course-list {z-index:1;margin:0 -8px;padding-left:13px;padding-right:13px;}
+.shelf-workspace .course-card.spine-volume {flex-basis:var(--book-width,64px);width:var(--book-width,64px);min-width:var(--book-width,64px);max-width:var(--book-width,64px);height:var(--book-height,218px);min-height:var(--book-height,218px);}
+.shelf-workspace .course-card.spine-volume.spine-laid {flex-basis:148px;width:148px;min-width:148px;max-width:148px;height:76px;min-height:76px;align-self:flex-end;margin-bottom:18px;border-radius:5px 7px 4px 4px;box-shadow:0 4px 0 #34211688,2px 7px 0 #c7a47755,4px 11px 9px #30201555,inset 0 1px #e4c69755;}
+.shelf-workspace .spine-laid .spine-open {flex-direction:row;gap:7px;padding:8px 10px;}
+.shelf-workspace .spine-laid .spine-title {writing-mode:horizontal-tb;transform:none;height:auto;max-width:90px;max-height:2.8em;font-size:11px;line-height:1.3;}
+.shelf-workspace .spine-laid .spine-category {font-size:7px;}
+.shelf-workspace .spine-laid .spine-code {font-size:6px;}
+.shelf-workspace .spine-laid::after {left:8px;right:8px;top:7px;height:calc(100% - 14px);border:1px solid #dcbd8040;border-radius:3px;}
+/* Used volumes get a soft, handled patina while keeping the subject easy to read. */
+.shelf-workspace .spine-volume.spine-worn {background-image:repeating-linear-gradient(168deg,transparent 0 25px,#f2dca00d 26px 27px,transparent 28px 57px),linear-gradient(90deg,#160d0748,transparent 12%,#ffffff0d 22%,transparent 32%,#24130c2b 88%,#fff4ca14 96%,#24130c45);}
+.shelf-workspace .spine-worn .spine-title {text-shadow:0 1px 0 #382317,0 0 1px #fff1ce70;}
+.shelf-workspace .semester-finished .semester-title::after {content:" · finished";font:italic 10px var(--font-display);color:#d0b183;}
+.shelf-workspace .semester-current .semester-title::after {content:" · current";font:italic 10px var(--font-display);color:#efd29a;}
+.shelf-workspace .course-card.spine-volume.dragging {opacity:.5;cursor:grabbing;}
+.shelf-workspace .semester-column.dragover {outline:2px solid #d4b17a;outline-offset:3px;}
+
 /* The book leaves the shelf, then its cover opens around real, editable pages. */
 .travelling-book {position: fixed;z-index: 1700;width: 200px;height: 290px;padding: 30px 23px;border: 1px solid #3d271b;border-right: 8px solid #ecdfbd;border-radius: 4px 9px 9px 4px;box-shadow: 6px 14px 26px #29180e60;color: #f9e6bf;display: flex;flex-direction: column;gap: 45px;pointer-events: none;}
 .travelling-book small {font-size: 10px;letter-spacing: 1px;}
@@ -215,7 +237,7 @@
   .shelf-workspace .semester-stats {font-size: 7px;padding: 3px 4px;}
   .shelf-workspace .semester-header .action-icon {padding: 4px;}
   .shelf-workspace .course-list {gap: 5px;padding-left: 7px;padding-right: 7px;}
-  .shelf-workspace .course-card.spine-volume {flex-basis: 54px;width: 54px;min-width: 54px;max-width: 54px;}
+  .shelf-workspace .course-card.spine-volume {flex-basis: var(--book-width,54px);width: var(--book-width,54px);min-width: var(--book-width,54px);max-width: var(--book-width,54px);}
   .spine-title {font-size: 12px;max-width: 38px;}
   .spine-category {font-size: 7px;}
   .spine-code {font-size: 6px;}
