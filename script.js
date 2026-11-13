@@ -447,8 +447,11 @@ async function buildCourseCard(course,{worn=false,pose='upright'}={}) {
   const card=document.createElement('div');card.className='course-card spine-volume'+(course.isPlaceholder?' elective-placeholder':'')+(worn?' spine-worn':'')+(pose==='horizontal'?' spine-laid':'')+(pose==='slanted'?' spine-slanted':'');
   card.id=`course-card-${course.id}`;card.dataset.id=course.id;card.draggable=true;card.setAttribute('role','group');card.setAttribute('aria-label',course.name);
   const credits=Math.max(1,Math.min(8,Number(course.credits)||1));
-  card.style.setProperty('--book-width',`${Math.round(56+credits*2)}px`);
-  card.style.setProperty('--book-height',`${Math.round(202+credits*2)}px`);
+  const sizeSeed=String(course.id||course.code||course.name||'book').split('').reduce((seed,char)=>(seed*31+char.charCodeAt(0))>>>0,7);
+  const bookWidth=Math.round(48+credits*4+(sizeSeed%3));
+  const bookHeight=190+(sizeSeed%42);
+  card.style.setProperty('--book-width',`${bookWidth}px`);
+  card.style.setProperty('--book-height',`${bookHeight}px`);
   card.style.setProperty('--book-color',COURSE_BROWNS[courseCategory(course)]);
   const open=document.createElement('button');open.type='button';open.className='spine-open';open.setAttribute('aria-label',`Open ${course.name}`);open.title=`${course.name} · ${course.code} · ${courseCategory(course)}`;
   const category=document.createElement('span');category.className='spine-category';category.textContent=courseCategory(course);
