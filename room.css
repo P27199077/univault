@@ -118,9 +118,14 @@
 .shelf-workspace .spine-laid .spine-category {font-size:7px;}
 .shelf-workspace .spine-laid .spine-code {font-size:6px;}
 .shelf-workspace .spine-laid::after {left:8px;right:8px;top:7px;height:calc(100% - 14px);border:1px solid #dcbd8040;border-radius:3px;}
-/* Used volumes get a soft, handled patina while keeping the subject easy to read. */
-.shelf-workspace .spine-volume.spine-worn {background-image:repeating-linear-gradient(168deg,transparent 0 25px,#f2dca00d 26px 27px,transparent 28px 57px),linear-gradient(90deg,#160d0748,transparent 12%,#ffffff0d 22%,transparent 32%,#24130c2b 88%,#fff4ca14 96%,#24130c45);}
-.shelf-workspace .spine-worn .spine-title {text-shadow:0 1px 0 #382317,0 0 1px #fff1ce70;}
+/* A honeyed, handled patina makes current and completed volumes visibly well-loved. */
+.shelf-workspace .spine-volume.spine-worn {filter:saturate(.78) contrast(1.04);background-image:radial-gradient(ellipse at 8% 18%,#e2bd7c55 0 2%,transparent 9%),radial-gradient(ellipse at 94% 76%,#26150d70 0 3%,transparent 13%),repeating-linear-gradient(168deg,transparent 0 17px,#f2dca02b 18px 19px,transparent 20px 47px),linear-gradient(90deg,#160d076b,transparent 12%,#ffffff18 22%,transparent 32%,#24130c40 82%,#e7c78b30 94%,#24130c65);box-shadow:inset 2px 0 4px #e6c48945,inset -3px 0 6px #25140d78,3px 0 2px #311e1470,inset 0 1px 0 #e4c69766;}
+.shelf-workspace .spine-volume.spine-worn::before {display:block;content:"";position:absolute;inset:0;z-index:1;pointer-events:none;border-left:2px solid #d4ad714d;border-top:1px solid #f0d29a50;border-radius:inherit;background:linear-gradient(174deg,transparent 0 11%,#f2d69a25 11.4% 11.8%,transparent 12.4% 67%,#24150e30 68% 69%,transparent 69.5%),linear-gradient(90deg,#f2d69a22 0 2px,transparent 5% 91%,#d5ad6c33 97%);}
+.shelf-workspace .spine-worn .spine-open {position:relative;z-index:2;}
+.shelf-workspace .spine-worn .spine-title {text-shadow:0 1px 0 #382317,0 0 1px #fff1ce90;}
+.shelf-workspace .spine-volume.spine-slanted {transform:rotate(-6deg) translateY(-2px);transform-origin:center bottom;margin-left:3px;margin-right:3px;}
+.shelf-workspace .spine-volume.spine-slanted:hover {transform:rotate(-6deg) translateY(-11px) translateZ(8px) scale(1.055);}
+.shelf-workspace .spine-volume.spine-slanted:focus-within {transform:rotate(-6deg) translateY(-9px) scale(1.04);}
 .shelf-workspace .semester-finished .semester-title::after {content:" · finished";font:italic 10px var(--font-display);color:#d0b183;}
 .shelf-workspace .semester-current .semester-title::after {content:" · current";font:italic 10px var(--font-display);color:#efd29a;}
 .shelf-workspace .course-card.spine-volume.dragging {opacity:.5;cursor:grabbing;}

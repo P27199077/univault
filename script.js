@@ -231,10 +231,22 @@ async function renderBoard() {
     return;
   }
   
+  // Keep the numbered terms chronological, with PS-1 after Year 2 Sem 2.
   // Active semester shelves stay at eye level; finished shelves settle below them.
+  const semesterOrder = semester => {
+    const name = String(semester.name || '').trim();
+    const numbered = name.match(/(?:year\s*)?(\d+)\s*[- ]?\s*(?:sem(?:ester)?\s*)?(\d+)/i);
+    if (numbered) return Number(numbered[1]) * 10 + Number(numbered[2]);
+    if (/\bps\s*[- ]?1\b|summer\s*term/i.test(name)) return 25;
+    return null;
+  };
+  const sortBySemesterOrder = semesters => semesters
+    .map((semester,index)=>({semester,index,order:semesterOrder(semester)}))
+    .sort((a,b)=>a.order!==null && b.order!==null ? a.order-b.order : a.order!==null ? -1 : b.order!==null ? 1 : a.index-b.index)
+    .map(entry=>entry.semester);
   const sortedSemesters=[
-    ...state.semesters.filter(semester=>!semester.completed),
-    ...state.semesters.filter(semester=>semester.completed),
+    ...sortBySemesterOrder(state.semesters.filter(semester=>!semester.completed)),
+    ...sortBySemesterOrder(state.semesters.filter(semester=>semester.completed)),
   ];
 
   // Each semester is a shelf; course records render as clickable books.
@@ -405,8 +417,9 @@ async function renderBoard() {
     courseList.id = `course-list-${sem.id}`;
     courseList.dataset.semId = sem.id;
     
-    for (const [courseIndex,course] of semCourses.entries()) {
-      const card = await buildCourseCard(course,{worn:!!sem.completed || col.classList.contains('semester-current'),laid:semCourses.length>2 && courseIndex%7===3});
+    for (const course of semCourses) {
+      const pose = readShelfPoses()[course.id] || 'upright';
+      const card = await buildCourseCard(course,{worn:!!sem.completed || col.classList.contains('semester-current'),pose});
       courseList.appendChild(card);
     }
     
@@ -419,12 +432,23 @@ async function renderBoard() {
   lucide.createIcons();
 }
 
-async function buildCourseCard(course,{worn=false,laid=false}={}) {
-  const card=document.createElement('div');card.className='course-card spine-volume'+(course.isPlaceholder?' elective-placeholder':'')+(worn?' spine-worn':'')+(laid?' spine-laid':'');
+function readShelfPoses() {
+  try { return JSON.parse(localStorage.getItem('univault_shelf_poses') || '{}'); }
+  catch { return {}; }
+}
+
+function writeShelfPose(courseId,pose) {
+  const poses=readShelfPoses();poses[courseId]=pose;
+  try { localStorage.setItem('univault_shelf_poses',JSON.stringify(poses)); }
+  catch { showToast('Could not save this book position on this device.','error'); }
+}
+
+async function buildCourseCard(course,{worn=false,pose='upright'}={}) {
+  const card=document.createElement('div');card.className='course-card spine-volume'+(course.isPlaceholder?' elective-placeholder':'')+(worn?' spine-worn':'')+(pose==='horizontal'?' spine-laid':'')+(pose==='slanted'?' spine-slanted':'');
   card.id=`course-card-${course.id}`;card.dataset.id=course.id;card.draggable=true;card.setAttribute('role','group');card.setAttribute('aria-label',course.name);
   const credits=Math.max(1,Math.min(8,Number(course.credits)||1));
-  card.style.setProperty('--book-width',`${Math.round(48+credits*4)}px`);
-  card.style.setProperty('--book-height',`${Math.round(190+credits*7)}px`);
+  card.style.setProperty('--book-width',`${Math.round(56+credits*2)}px`);
+  card.style.setProperty('--book-height',`${Math.round(202+credits*2)}px`);
   card.style.setProperty('--book-color',COURSE_BROWNS[courseCategory(course)]);
   const open=document.createElement('button');open.type='button';open.className='spine-open';open.setAttribute('aria-label',`Open ${course.name}`);open.title=`${course.name} · ${course.code} · ${courseCategory(course)}`;
   const category=document.createElement('span');category.className='spine-category';category.textContent=courseCategory(course);
@@ -432,6 +456,10 @@ async function buildCourseCard(course,{worn=false,laid=false}={}) {
   const code=document.createElement('span');code.className='spine-code';code.textContent=course.code || '';
   open.append(category,title,code);open.addEventListener('click',()=>openBookFromShelf(course.id,card));card.append(open);
   const actions=document.createElement('div');actions.className='spine-actions';
+  const poseNames={upright:'upright',slanted:'slanted',horizontal:'horizontal'};
+  const nextPose={upright:'slanted',slanted:'horizontal',horizontal:'upright'};
+  const poseButton=document.createElement('button');poseButton.type='button';poseButton.className='action-icon';poseButton.setAttribute('aria-label',`Change ${course.name} book position, currently ${poseNames[pose]||'upright'}`);poseButton.title=`Current: ${poseNames[pose]||'upright'} · click for ${nextPose[pose]||'slanted'}`;poseButton.innerHTML='<i data-lucide="rotate-cw"></i>';
+  poseButton.addEventListener('click',event=>{event.stopPropagation();const next=nextPose[pose]||'slanted';if(next==='horizontal'){const horizontalCount=state.courses.filter(item=>item.semesterId===course.semesterId && readShelfPoses()[item.id]==='horizontal').length;if(horizontalCount>=2){showToast('Keep no more than two books lying flat on a shelf.','info');return;}}writeShelfPose(course.id,next);renderBoard();});actions.append(poseButton);
   for(const [label,icon,action] of [['Edit '+course.name,'pencil',()=>openCourseModal(course.id)],['Delete '+course.name,'trash-2',()=>confirmDeleteCourse(course.id)]]) {
     const button=document.createElement('button');button.type='button';button.className='action-icon';button.setAttribute('aria-label',label);button.title=label;button.innerHTML=`<i data-lucide="${icon}"></i>`;button.addEventListener('click',event=>{event.stopPropagation();action();});actions.append(button);
   }
