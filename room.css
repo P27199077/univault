@@ -87,9 +87,10 @@
 .spine-category {font-size: 8px;letter-spacing: 1px;font-weight: 600;color: #ead3aa;}
 .spine-title {display: block;writing-mode: vertical-rl;transform: rotate(180deg);text-orientation: mixed;height: 153px;max-width: 45px;overflow: hidden;font: 500 14px/1.45 var(--font-display);letter-spacing: .2px;text-align: center;color: #f7e5c1;}
 .spine-code {font-size: 7px;letter-spacing: .35px;white-space: nowrap;color: #dfc69d;}
-.spine-actions {display: flex;justify-content: center;position: absolute;top: -30px;height: 27px;left: -3px;right: -3px;background: #f0dbb5;border: 1px solid #a28152;border-radius: 4px;opacity: 0;pointer-events: none;transition: opacity .15s ease;}
-.spine-actions .action-icon {padding: 5px 8px;color: #76502e;}
-.spine-actions .action-icon svg {width: 12px;height: 12px;}
+.spine-actions {display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;position:absolute;top:50%;left:50%;right:auto;height:auto;width:46px;padding:5px;background:#f0dbb5;border:1px solid #a28152;border-radius:8px;box-shadow:0 3px 10px #29180e55;opacity:0;pointer-events:none;transform:translate(-50%,-50%);transition:opacity .15s ease;z-index:5;}
+.spine-actions .action-icon {display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;min-width:36px;padding:0;color:#76502e;border-radius:6px;}
+.spine-actions .action-icon svg {width:16px;height:16px;}
+.spine-actions .action-icon:focus-visible {outline:2px solid #76502e;outline-offset:1px;}
 .spine-actions .action-icon:hover {background: #d4b98c;color: #553719;}
 @media (hover:hover) and (pointer:fine) {
   .shelf-workspace .course-card.spine-volume:hover {transform: translateY(-11px) translateZ(8px) scale(1.055);box-shadow: 6px 10px 13px #30201555;z-index: 3;}
